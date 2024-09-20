@@ -1,9 +1,9 @@
+streamlit
 yfinance
 scikit-learn
-streamlit
-pandas
-numpy
-matplotlib
 scikit-plot
 lime
 scipy
+pandas
+numpy
+matplotlib
