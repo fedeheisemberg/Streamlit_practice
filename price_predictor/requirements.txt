@@ -7,3 +7,6 @@ scipy
 pandas
 numpy
 matplotlib
+prophet
+plotly
+datetime
