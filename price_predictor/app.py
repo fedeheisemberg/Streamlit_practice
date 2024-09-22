@@ -10,6 +10,12 @@ import matplotlib.pyplot as plt
 import scikitplot as skplt
 from lime import lime_tabular
 
+# Configurar el título y el ícono que aparecen en la barra de pestañas del navegador.
+st.set_page_config(
+    page_title='Predictor de Subida/Bajada de Acciones',
+    page_icon=':rocket:',  # Este es un shortcode de emoji. También podría ser una URL.
+)
+
 # Función para obtener datos de Yahoo Finance
 def get_stock_data(ticker, start_date, end_date):
     stock_data = yf.download(ticker, start=start_date, end=end_date)
