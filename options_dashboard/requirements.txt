@@ -2,6 +2,7 @@ streamlit
 yfinance
 pandas
 plotly
-datetime
-matplotlib
+requests
+beautifulsoup4
 seaborn
+matplotlib
