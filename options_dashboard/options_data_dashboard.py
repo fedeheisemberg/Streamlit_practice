@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Dashboard OptionsPro", layout="wide")
 
 # Cargar logo en el header
-st.image("logo 2.png")
+st.image("logo2.png")
 
 # Crear título
 st.title("Dashboard OptionsPro - Optima Consulting & Management LLC")
