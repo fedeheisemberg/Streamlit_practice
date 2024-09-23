@@ -1,9 +1,10 @@
 import streamlit as st
 from datetime import date
 import yfinance as yf
-from prophet import Prophet
+import prophet as Prophet
 from prophet.plot import plot_plotly
 from plotly import graph_objs as go
+import pandas as pd
 
 # Fecha de inicio y fecha de hoy
 INICIO = "2015-01-01"
@@ -12,7 +13,7 @@ HOY = date.today().strftime("%Y-%m-%d")
 # Título de la aplicación
 st.title('Aplicación de Predicción de Acciones')
 
-# Lista de acciones con 10 más añadidas
+# Lista de acciones
 acciones = ('GOOG', 'AAPL', 'MSFT', 'GME', 'TSLA', 'AMZN', 'NFLX', 'NVDA', 'META', 'BABA', 'BA', 'XOM', 'JPM', 'V', 'KO')
 accion_seleccionada = st.selectbox('Selecciona un conjunto de datos para la predicción', acciones)
 
@@ -23,46 +24,55 @@ periodo = n_años * 365
 # Carga de datos de Yahoo Finance
 @st.cache_data
 def cargar_datos(ticker):
-    datos = yf.download(ticker, INICIO, HOY)
-    datos.reset_index(inplace=True)
-    return datos
+    try:
+        datos = yf.download(ticker, INICIO, HOY)
+        datos.reset_index(inplace=True)
+        return datos
+    except Exception as e:
+        st.error(f"Error al cargar datos: {e}")
+        return None
 
 # Mensaje de estado de carga de datos
-estado_carga_datos = st.text('Cargando datos...')
-datos = cargar_datos(accion_seleccionada)
-estado_carga_datos.text('Cargando datos... ¡hecho!')
+with st.spinner('Cargando datos...'):
+    datos = cargar_datos(accion_seleccionada)
 
-# Subtítulo para los datos en bruto
-st.subheader('Datos en bruto')
-st.write(datos.tail())
+if datos is not None and not datos.empty:
+    st.success('Datos cargados con éxito!')
 
-# Función para graficar los datos en bruto
-def graficar_datos_brutos():
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=datos['Date'], y=datos['Open'], name="stock_open"))
-    fig.add_trace(go.Scatter(x=datos['Date'], y=datos['Close'], name="stock_close"))
-    fig.layout.update(title_text='Datos de Series Temporales con Rango deslizante', xaxis_rangeslider_visible=True)
-    st.plotly_chart(fig)
+    # Subtítulo para los datos en bruto
+    st.subheader('Datos en bruto')
+    st.write(datos.tail())
 
-graficar_datos_brutos()
+    # Función para graficar los datos en bruto
+    def graficar_datos_brutos():
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=datos['Date'], y=datos['Open'], name="stock_open"))
+        fig.add_trace(go.Scatter(x=datos['Date'], y=datos['Close'], name="stock_close"))
+        fig.layout.update(title_text='Datos de Series Temporales con Rango deslizante', xaxis_rangeslider_visible=True)
+        st.plotly_chart(fig)
 
-# Predicción del pronóstico con Prophet
-df_train = datos[['Date', 'Close']]
-df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
+    graficar_datos_brutos()
 
-m = Prophet()
-m.fit(df_train)
-futuro = m.make_future_dataframe(periods=periodo)
-pronostico = m.predict(futuro)
+    # Predicción del pronóstico con Prophet
+    df_train = datos[['Date', 'Close']]
+    df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
 
-# Mostrar y graficar el pronóstico
-st.subheader('Datos del pronóstico')
-st.write(pronostico.tail())
+    with st.spinner('Generando pronóstico...'):
+        m = Prophet.Prophet()
+        m.fit(df_train)
+        futuro = m.make_future_dataframe(periods=periodo)
+        pronostico = m.predict(futuro)
 
-st.write(f'Gráfico del pronóstico para {n_años} años')
-fig1 = plot_plotly(m, pronostico)
-st.plotly_chart(fig1)
+    # Mostrar y graficar el pronóstico
+    st.subheader('Datos del pronóstico')
+    st.write(pronostico.tail())
 
-st.write("Componentes del pronóstico")
-fig2 = m.plot_components(pronostico)
-st.write(fig2)
+    st.write(f'Gráfico del pronóstico para {n_años} años')
+    fig1 = plot_plotly(m, pronostico)
+    st.plotly_chart(fig1)
+
+    st.write("Componentes del pronóstico")
+    fig2 = m.plot_components(pronostico)
+    st.pyplot(fig2)
+else:
+    st.error("No se pudieron cargar los datos. Por favor, intenta con otra acción o verifica tu conexión a internet.")
