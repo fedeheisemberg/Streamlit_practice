@@ -350,33 +350,27 @@ def main():
         
         st.plotly_chart(fig, use_container_width=True)
 
-    # Panel de Feedback
+# Feedback
     st.subheader("📝 ¡Queremos escuchar tu opinión!")
     st.markdown("¿Qué más te gustaría ver en este proyecto? ¿Te interesaría un proyecto de opciones más complejo? ¡Tu feedback es muy importante para nosotros!")
 
-    # Simulación de un formulario de feedback
     feedback = st.text_area("✍️ Deja tu comentario aquí:")
     email = st.text_input("📧 Deja tu email para que te contactemos (opcional)")
 
-    # Cuando el usuario hace clic en el botón para enviar feedback
     if st.button("📨 Enviar Feedback"):
         if feedback:
             sheet_name = "StreamlitSuscriber"
-
+            
             if email:
-                # Intentar suscribir al usuario con email y guardar el feedback
-                if subscribe_user(email, sheet_name):
-                    # Guarda el email y el feedback en la hoja de cálculo
-                    save_feedback(email, feedback, sheet_name)
+                if save_feedback(email, feedback, sheet_name):
                     st.success(f"🎉 ¡Gracias por tu feedback, {email}! Tu opinión es muy valiosa para nosotros.")
                 else:
-                    st.warning(f"El email {email} ya está suscrito. ¡Gracias por tu feedback!")
-                    # Guarda el feedback aunque el email ya esté suscrito
-                    save_feedback(email, feedback, sheet_name)
+                    st.error("Hubo un problema al guardar tu feedback. Por favor, intenta de nuevo.")
             else:
-                # Guarda el feedback sin email
-                save_feedback("No proporcionado", feedback, sheet_name)  # Indica que no se proporcionó email
-                st.success("🎉 ¡Gracias por tu feedback! Valoramos tu opinión.")
+                if save_feedback("", feedback, sheet_name):
+                    st.success("🎉 ¡Gracias por tu feedback! Valoramos tu opinión.")
+                else:
+                    st.error("Hubo un problema al guardar tu feedback. Por favor, intenta de nuevo.")
         else:
             st.error("⚠️ Por favor, ingresa tu feedback.")
 
