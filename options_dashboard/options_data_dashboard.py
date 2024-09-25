@@ -10,11 +10,18 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from subscription_manager import save_feedback
 
-# Configuración de la página
-st.set_page_config(page_title="Dashboard OptionsPro", layout="wide")
+# Configuración de la página con favicon
+st.set_page_config(page_title="Dashboard OptionsPro", layout="wide", page_icon="options_dashboard/favicon.ico")
 
-# Cargar logo en el header
-st.image("options_dashboard/logo2.png")
+# Función para determinar el modo (oscuro o claro)
+def get_theme():
+    return st.get_option("theme.base")
+
+# Cargar logo basado en el tema
+if get_theme() == "dark":
+    st.image("options_dashboard/logo2.png")
+else:
+    st.image("options_dashboard/logo1.png")
 
 # Crear título
 st.title("Dashboard OptionsPro - Optima Consulting & Management LLC")
