@@ -361,19 +361,19 @@ def main():
     # Cuando el usuario hace clic en el botón para enviar feedback
     if st.button("📨 Enviar Feedback"):
         if feedback:
-            # Aquí ya no necesitamos el json_keyfile, ya que usamos Streamlit secrets
             sheet_name = "StreamlitSuscriber"
 
             if email:
                 # Intentar suscribir al usuario con email
                 if subscribe_user(email, sheet_name):
-                    st.success(f"🎉 ¡Gracias por tu feedback, {email}!")
+                    st.success(f"🎉 ¡Gracias por tu feedback, {email}! Tu opinión es muy valiosa para nosotros.")
                 else:
-                    st.warning(f"El email {email} ya está suscrito. Pero igualmente, ¡gracias por tu feedback!")
+                    st.warning(f"El email {email} ya está suscrito. ¡Gracias por tu feedback!")
             else:
-                st.success("🎉 ¡Gracias por tu feedback!")
+                st.success("🎉 ¡Gracias por tu feedback! Valoramos tu opinión.")
         else:
             st.error("⚠️ Por favor, ingresa tu feedback.")
+
 
 if __name__ == "__main__":
     main()
