@@ -1,3 +1,4 @@
+#options_data_dashboard.py
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -357,23 +358,22 @@ def main():
     feedback = st.text_area("✍️ Deja tu comentario aquí:")
     email = st.text_input("📧 Deja tu email para que te contactemos (opcional)")
 
+    # Cuando el usuario hace clic en el botón para enviar feedback
     if st.button("📨 Enviar Feedback"):
         if feedback:
-            json_keyfile = "optionsprostreamlitsuscriber-b74f7e66a124.json"
+            # Aquí ya no necesitamos el json_keyfile, ya que usamos Streamlit secrets
             sheet_name = "StreamlitSuscriber"
-            
-            if email and subscribe_user(email, sheet_name, json_keyfile):
-                st.success(f"🎉 ¡Gracias por tu feedback, {email}!")
-            elif not email:
-                st.success("🎉 ¡Gracias por tu feedback!")
+
+            if email:
+                # Intentar suscribir al usuario con email
+                if subscribe_user(email, sheet_name):
+                    st.success(f"🎉 ¡Gracias por tu feedback, {email}!")
+                else:
+                    st.warning(f"El email {email} ya está suscrito. Pero igualmente, ¡gracias por tu feedback!")
             else:
-                st.warning(f"El email {email} ya está suscrito. Pero igualmente, ¡gracias por tu feedback!")
+                st.success("🎉 ¡Gracias por tu feedback!")
         else:
             st.error("⚠️ Por favor, ingresa tu feedback.")
-
-    # Footer usando markdown de Streamlit
-    st.markdown("---")
-    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://www.optimalearning.site/) | [Página Web](https://www.optimafinancials.com/)" )
 
 if __name__ == "__main__":
     main()

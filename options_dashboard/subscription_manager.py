@@ -1,26 +1,44 @@
-import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import streamlit as st
 
-# Autenticación con Google Sheets
-def authenticate_google_sheets(json_keyfile):
+# Función de autenticación con Google Sheets
+def authenticate_google_sheets():
+    # Obtener las credenciales desde st.secrets
+    json_keyfile = {
+        "type": st.secrets["google_service_account"]["type"],
+        "project_id": st.secrets["google_service_account"]["project_id"],
+        "private_key_id": st.secrets["google_service_account"]["private_key_id"],
+        "private_key": st.secrets["google_service_account"]["private_key"],
+        "client_email": st.secrets["google_service_account"]["client_email"],
+        "client_id": st.secrets["google_service_account"]["client_id"],
+        "auth_uri": st.secrets["google_service_account"]["auth_uri"],
+        "token_uri": st.secrets["google_service_account"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["google_service_account"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["google_service_account"]["client_x509_cert_url"]
+    }
+    
+    # Definir los alcances (scopes)
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile, scope)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(json_keyfile, scope)
     client = gspread.authorize(creds)
     return client
 
-# Función para guardar el email en Google Sheets
-def save_email_to_sheet(email, sheet_name, client):
-    sheet = client.open(sheet_name).sheet1
-    existing_emails = sheet.col_values(1)  # Suponiendo que la primera columna es donde se almacenan los emails
+# Función de suscripción principal
+def subscribe_user(email, sheet_name):
+    try:
+        client = authenticate_google_sheets()
+        sheet = client.open(sheet_name).sheet1  # Abre la primera hoja del archivo de Google Sheets
 
-    if email not in existing_emails:
+        # Verifica si el email ya está registrado
+        existing_emails = sheet.col_values(1)  # Obtiene todos los correos electrónicos de la primera columna
+        if email in existing_emails:
+            return False
+
+        # Si el email no está registrado, lo agrega
         sheet.append_row([email])
         return True
-    return False
+    except Exception as e:
+        st.error(f"Error en la suscripción: {e}")
+        return False
 
-# Función de suscripción principal
-def subscribe_user(email, sheet_name, json_keyfile):
-    client = authenticate_google_sheets(json_keyfile)
-    return save_email_to_sheet(email, sheet_name, client)
