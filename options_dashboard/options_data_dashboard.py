@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 import seaborn as sns
 import matplotlib.pyplot as plt
-from subscription_manager import subscribe_user
+from subscription_manager import subscribe_user, save_feedback
 
 # Configuración de la página
 st.set_page_config(page_title="Dashboard OptionsPro", layout="wide")
@@ -364,15 +364,20 @@ def main():
             sheet_name = "StreamlitSuscriber"
 
             if email:
-                # Intentar suscribir al usuario con email
+                # Intentar suscribir al usuario con email y guardar el feedback
                 if subscribe_user(email, sheet_name):
+                    # Guarda el feedback en la hoja de cálculo
+                    save_feedback(feedback, sheet_name)
                     st.success(f"🎉 ¡Gracias por tu feedback, {email}! Tu opinión es muy valiosa para nosotros.")
                 else:
                     st.warning(f"El email {email} ya está suscrito. ¡Gracias por tu feedback!")
             else:
+                # Guarda el feedback sin email
+                save_feedback(feedback, sheet_name)
                 st.success("🎉 ¡Gracias por tu feedback! Valoramos tu opinión.")
         else:
             st.error("⚠️ Por favor, ingresa tu feedback.")
+
 
 
 if __name__ == "__main__":

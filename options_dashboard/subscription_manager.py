@@ -24,8 +24,19 @@ def authenticate_google_sheets():
     client = gspread.authorize(creds)
     return client
 
+# Función para guardar el feedback
+def save_feedback(feedback, sheet_name):
+    try:
+        client = authenticate_google_sheets()
+        sheet = client.open(sheet_name).sheet1  # Abre la primera hoja del archivo de Google Sheets
+        
+        # Agrega el feedback a la hoja
+        sheet.append_row([feedback])  # Puedes agregar más columnas si necesitas almacenar más información
+    except Exception as e:
+        st.error(f"Error al guardar el feedback: {e}")
+
 # Función de suscripción principal
-def subscribe_user(email, message, sheet_name):
+def subscribe_user(email, sheet_name):
     try:
         client = authenticate_google_sheets()
         sheet = client.open(sheet_name).sheet1  # Abre la primera hoja del archivo de Google Sheets
@@ -35,12 +46,11 @@ def subscribe_user(email, message, sheet_name):
         if email in existing_emails:
             return False
 
-        # Si el email no está registrado, lo agrega junto con el mensaje
-        sheet.append_row([email, message])  # Agrega el correo y el mensaje en la misma fila
+        # Si el email no está registrado, lo agrega
+        sheet.append_row([email])
         return True
     except Exception as e:
         st.error(f"Error en la suscripción: {e}")
         return False
-
 
 
