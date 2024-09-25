@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 import seaborn as sns
 import matplotlib.pyplot as plt
-from subscription_manager import subscribe_user, save_feedback
+from subscription_manager import save_feedback
 
 # Configuración de la página
 st.set_page_config(page_title="Dashboard OptionsPro", layout="wide")
