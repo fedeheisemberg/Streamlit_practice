@@ -25,13 +25,13 @@ def authenticate_google_sheets():
     return client
 
 # Función para guardar el feedback
-def save_feedback(feedback, sheet_name):
+def save_feedback(email, feedback, sheet_name):
     try:
         client = authenticate_google_sheets()
         sheet = client.open(sheet_name).sheet1  # Abre la primera hoja del archivo de Google Sheets
         
-        # Agrega el feedback a la hoja
-        sheet.append_row([feedback])  # Puedes agregar más columnas si necesitas almacenar más información
+        # Agrega el email y el feedback a la hoja
+        sheet.append_row([email, feedback])  # Guarda el email en la columna A y el feedback en la columna B
     except Exception as e:
         st.error(f"Error al guardar el feedback: {e}")
 

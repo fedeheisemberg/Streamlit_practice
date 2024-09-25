@@ -366,14 +366,16 @@ def main():
             if email:
                 # Intentar suscribir al usuario con email y guardar el feedback
                 if subscribe_user(email, sheet_name):
-                    # Guarda el feedback en la hoja de cálculo
-                    save_feedback(feedback, sheet_name)
+                    # Guarda el email y el feedback en la hoja de cálculo
+                    save_feedback(email, feedback, sheet_name)
                     st.success(f"🎉 ¡Gracias por tu feedback, {email}! Tu opinión es muy valiosa para nosotros.")
                 else:
                     st.warning(f"El email {email} ya está suscrito. ¡Gracias por tu feedback!")
+                    # Guarda el feedback aunque el email ya esté suscrito
+                    save_feedback(email, feedback, sheet_name)
             else:
                 # Guarda el feedback sin email
-                save_feedback(feedback, sheet_name)
+                save_feedback("No proporcionado", feedback, sheet_name)  # Indica que no se proporcionó email
                 st.success("🎉 ¡Gracias por tu feedback! Valoramos tu opinión.")
         else:
             st.error("⚠️ Por favor, ingresa tu feedback.")
