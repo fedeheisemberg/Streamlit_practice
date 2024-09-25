@@ -18,10 +18,10 @@ def get_theme():
     return st.get_option("theme.base")
 
 # Cargar logo basado en el tema
-if get_theme() == "dark":
-    st.image("options_dashboard/logo1.png")
-else:
+if get_theme() == "light":
     st.image("options_dashboard/logo2.png")
+else:
+    st.image("options_dashboard/logo1.png")
 
 # Crear título
 st.title("Dashboard OptionsPro - Optima Consulting & Management LLC")
