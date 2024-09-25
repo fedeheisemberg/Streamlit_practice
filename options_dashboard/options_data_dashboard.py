@@ -351,7 +351,7 @@ def main():
         st.plotly_chart(fig, use_container_width=True)
 
 # Feedback
-    st.subheader("📝 ¡Queremos escuchar tu opinión!")
+    st.subheader("📝 ¡Queremos saber tu opinión!")
     st.markdown("¿Qué más te gustaría ver en este proyecto? ¿Te interesaría un proyecto de opciones más complejo? ¡Tu feedback es muy importante para nosotros!")
 
     feedback = st.text_area("✍️ Deja tu comentario aquí:")
