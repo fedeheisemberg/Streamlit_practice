@@ -373,6 +373,10 @@ def main():
                     st.error("Hubo un problema al guardar tu feedback. Por favor, intenta de nuevo.")
         else:
             st.error("⚠️ Por favor, ingresa tu feedback.")
+    
+    # Footer usando markdown de Streamlit
+    st.markdown("---")
+    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://www.optimalearning.site/) | [Página Web](https://www.optimafinancials.com/)" )
 
 
 
