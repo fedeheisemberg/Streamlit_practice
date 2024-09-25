@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 import seaborn as sns
 import matplotlib.pyplot as plt
+from subscription_manager import subscribe_user
 
 # Configuración de la página
 st.set_page_config(page_title="Dashboard OptionsPro", layout="wide")
@@ -348,24 +349,27 @@ def main():
         
         st.plotly_chart(fig, use_container_width=True)
 
-    # Panel de Suscripciones
-    st.subheader("📧 ¿Te interesa saber más? ¡Suscríbete!")
-    st.markdown("""
-    Optima OptionsPro ofrece diferentes niveles de acceso:
-    1. **🟢 Básico**: Acceso a gráficos e indicadores fundamentales.
-    2. **🔵 Avanzado**: Incluye estrategias de opciones avanzadas y análisis de volatilidad.
-    3. **🔴 Premium**: Reportes detallados y acceso a consultoría.
+    # Panel de Feedback
+    st.subheader("📝 ¡Queremos escuchar tu opinión!")
+    st.markdown("¿Qué más te gustaría ver en este proyecto? ¿Te interesaría un proyecto de opciones más complejo? ¡Tu feedback es muy importante para nosotros!")
 
-    Suscríbete aquí:
-    """)
+    # Simulación de un formulario de feedback
+    feedback = st.text_area("✍️ Deja tu comentario aquí:")
+    email = st.text_input("📧 Deja tu email para que te contactemos (opcional)")
 
-    # Simulación de un formulario de suscripción
-    email = st.text_input("📧 Email")
-    if st.button("📨 Suscribirse"):
-        if email:
-            st.success(f"🎉 Gracias por suscribirte, {email}!")
+    if st.button("📨 Enviar Feedback"):
+        if feedback:
+            json_keyfile = "optionsprostreamlitsuscriber-b74f7e66a124.json"
+            sheet_name = "StreamlitSuscriber"
+            
+            if email and subscribe_user(email, sheet_name, json_keyfile):
+                st.success(f"🎉 ¡Gracias por tu feedback, {email}!")
+            elif not email:
+                st.success("🎉 ¡Gracias por tu feedback!")
+            else:
+                st.warning(f"El email {email} ya está suscrito. Pero igualmente, ¡gracias por tu feedback!")
         else:
-            st.error("⚠️ Por favor, ingresa tu email.")
+            st.error("⚠️ Por favor, ingresa tu feedback.")
 
     # Footer usando markdown de Streamlit
     st.markdown("---")

@@ -6,3 +6,5 @@ requests
 beautifulsoup4
 seaborn
 matplotlib
+gspread
+oauth2client
