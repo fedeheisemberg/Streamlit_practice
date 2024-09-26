@@ -1,3 +1,4 @@
+#options_data_dashboard.py
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -7,12 +8,20 @@ import requests
 from bs4 import BeautifulSoup
 import seaborn as sns
 import matplotlib.pyplot as plt
+from subscription_manager import save_feedback
 
-# Configuración de la página
-st.set_page_config(page_title="Dashboard OptionsPro", layout="wide")
+# Configuración de la página con favicon
+st.set_page_config(page_title="Dashboard OptionsPro", layout="wide", page_icon="options_dashboard/favicon.ico")
 
-# Cargar logo en el header
-st.image("logo 2.png")
+# Función para determinar el modo (oscuro o claro)
+def get_theme():
+    return st.get_option("theme.base")
+
+# Cargar logo basado en el tema
+if get_theme() == "light":
+    st.image("options_dashboard/logo2.png")
+else:
+    st.image("options_dashboard/logo1.png")
 
 # Crear título
 st.title("Dashboard OptionsPro - Optima Consulting & Management LLC")
@@ -76,8 +85,16 @@ def main():
         st.write(f"**Dividendo (%)**: {ratios_financieros.get('dividendYield', 'No disponible') * 100 if ratios_financieros.get('dividendYield') else 'No disponible'}")
         st.write(f"**Beta**: {ratios_financieros.get('beta', 'No disponible')}")
 
-    precio_actual = ticker.history(period="1d")['Close'].iloc[-1]
-    st.write(f"Precio actual de {stock}: ${precio_actual:.2f}")
+    # Obtener y manejar posibles errores en los datos del precio actual
+    try:
+        data = ticker.history(period="1d")
+        if not data.empty:
+            precio_actual = data['Close'].iloc[-1]
+            st.write(f"Precio actual de {stock}: ${precio_actual:.2f}")
+        else:
+            st.error("No hay datos disponibles para este ticker o período.")
+    except Exception as e:
+        st.error(f"Error al obtener los datos: {e}")
 
     # Gráfico de precios históricos
     st.subheader("📈 Gráfico de precios históricos")
@@ -348,30 +365,39 @@ def main():
         
         st.plotly_chart(fig, use_container_width=True)
 
-    # Panel de Suscripciones
-    st.subheader("📧 ¿Te interesa saber más? ¡Suscríbete!")
-    st.markdown("""
-    Optima OptionsPro ofrece diferentes niveles de acceso:
-    1. **🟢 Básico**: Acceso a gráficos e indicadores fundamentales.
-    2. **🔵 Avanzado**: Incluye estrategias de opciones avanzadas y análisis de volatilidad.
-    3. **🔴 Premium**: Reportes detallados y acceso a consultoría.
+# Feedback
+    st.subheader("📝 ¡Queremos saber tu opinión!")
+    st.markdown("¿Qué más te gustaría ver en este proyecto? ¿Te interesaría un proyecto de opciones más complejo? ¡Tu feedback es muy importante para nosotros!")
 
-    Suscríbete aquí:
-    """)
+    feedback = st.text_area("✍️ Deja tu comentario aquí:")
+    email = st.text_input("📧 Deja tu email para que te contactemos (opcional)")
 
-    # Simulación de un formulario de suscripción
-    email = st.text_input("📧 Email")
-    if st.button("📨 Suscribirse"):
-        if email:
-            st.success(f"🎉 Gracias por suscribirte, {email}!")
+    if st.button("📨 Enviar Feedback"):
+        if feedback:
+            sheet_name = "StreamlitSuscriber"
+            
+            if email:
+                if save_feedback(email, feedback, sheet_name):
+                    st.success(f"🎉 ¡Gracias por tu feedback, {email}! Tu opinión es muy valiosa para nosotros.")
+                else:
+                    st.error("Hubo un problema al guardar tu feedback. Por favor, intenta de nuevo.")
+            else:
+                if save_feedback("", feedback, sheet_name):
+                    st.success("🎉 ¡Gracias por tu feedback! Valoramos tu opinión.")
+                else:
+                    st.error("Hubo un problema al guardar tu feedback. Por favor, intenta de nuevo.")
         else:
-            st.error("⚠️ Por favor, ingresa tu email.")
-
+            st.error("⚠️ Por favor, ingresa tu feedback.")
+    
     # Footer usando markdown de Streamlit
     st.markdown("---")
     st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://www.optimalearning.site/) | [Página Web](https://www.optimafinancials.com/)" )
 
+
+
 if __name__ == "__main__":
     main()
+
+
 
 
