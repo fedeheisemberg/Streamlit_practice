@@ -85,8 +85,16 @@ def main():
         st.write(f"**Dividendo (%)**: {ratios_financieros.get('dividendYield', 'No disponible') * 100 if ratios_financieros.get('dividendYield') else 'No disponible'}")
         st.write(f"**Beta**: {ratios_financieros.get('beta', 'No disponible')}")
 
-    precio_actual = ticker.history(period="1d")['Close'].iloc[-1]
-    st.write(f"Precio actual de {stock}: ${precio_actual:.2f}")
+    # Obtener y manejar posibles errores en los datos del precio actual
+    try:
+        data = ticker.history(period="1d")
+        if not data.empty:
+            precio_actual = data['Close'].iloc[-1]
+            st.write(f"Precio actual de {stock}: ${precio_actual:.2f}")
+        else:
+            st.error("No hay datos disponibles para este ticker o período.")
+    except Exception as e:
+        st.error(f"Error al obtener los datos: {e}")
 
     # Gráfico de precios históricos
     st.subheader("📈 Gráfico de precios históricos")
