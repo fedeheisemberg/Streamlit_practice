@@ -1,4 +1,3 @@
-#options_data_dashboard3.py
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -9,19 +8,6 @@ from bs4 import BeautifulSoup
 import seaborn as sns
 import matplotlib.pyplot as plt
 from subscription_manager import save_feedback
-
-def get_option_data(ticker, vencimiento):
-    try:
-        cadena_opciones = ticker.option_chain(vencimiento)
-        
-        # Verificar si 'impliedVolatility' está presente
-        if 'impliedVolatility' not in cadena_opciones.calls.columns or 'impliedVolatility' not in cadena_opciones.puts.columns:
-            st.warning("La volatilidad implícita no está disponible en los datos. Algunos gráficos pueden no mostrarse.")
-        
-        return cadena_opciones
-    except Exception as e:
-        st.error(f"Error al obtener datos de opciones: {e}")
-        return None
 
 # Configuración de la página con favicon
 st.set_page_config(page_title="Dashboard OptionsPro", layout="wide", page_icon="options_dashboard/favicon.ico")
@@ -368,75 +354,8 @@ def main():
     fig_macd.update_layout(title=f'MACD para {stock}', xaxis_title='Fecha', yaxis_title='MACD')
     st.plotly_chart(fig_macd, use_container_width=True)
 
-    # Opciones
-    if not opciones:
-    st.error(f"No hay datos de opciones disponibles para {stock}")
-else:
-    vencimiento = st.selectbox("📅 Seleccionar Fecha de Vencimiento", opciones)
-    
-    cadena_opciones = get_option_data(ticker, vencimiento)
-    
-    if cadena_opciones is not None:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("📈 Calls")
-            st.dataframe(cadena_opciones.calls)
-            st.download_button(
-                label="Descargar datos de Calls",
-                data=cadena_opciones.calls.to_csv(index=False),
-                file_name=f"{stock}_calls_{vencimiento}.csv",
-                mime="text/csv",
-            )
-        
-        with col2:
-            st.subheader("📉 Puts")
-            st.dataframe(cadena_opciones.puts)
-            st.download_button(
-                label="Descargar datos de Puts",
-                data=cadena_opciones.puts.to_csv(index=False),
-                file_name=f"{stock}_puts_{vencimiento}.csv",
-                mime="text/csv",
-            )
-        
-        # Análisis de volatilidad implícita
-        st.subheader("Análisis de Volatilidad Implícita")
-        st.markdown("""
-        La sonrisa de volatilidad implícita refleja cómo la volatilidad cambia con el strike price.
-        Una sonrisa pronunciada indica mayor incertidumbre en los extremos del rango de precios del activo subyacente.
-        Opciones at-the-money tienden a tener menor volatilidad implícita, mientras que las out-of-the-money (OTM) muestran mayor volatilidad debido al riesgo.
-        """)
-        
-        # Sonrisa de Volatilidad Implícita
-        if 'impliedVolatility' in cadena_opciones.calls.columns and 'impliedVolatility' in cadena_opciones.puts.columns:
-            fig_vol = go.Figure()
-            fig_vol.add_trace(go.Scatter(x=cadena_opciones.calls['strike'], y=cadena_opciones.calls['impliedVolatility'], mode='lines', name='Calls'))
-            fig_vol.add_trace(go.Scatter(x=cadena_opciones.puts['strike'], y=cadena_opciones.puts['impliedVolatility'], mode='lines', name='Puts'))
-            fig_vol.update_layout(title='📊 Sonrisa de Volatilidad Implícita', xaxis_title='Precio de Ejercicio', yaxis_title='Volatilidad Implícita')
-            st.plotly_chart(fig_vol, use_container_width=True)
-        else:
-            st.warning("No se puede mostrar la sonrisa de volatilidad implícita debido a datos faltantes.")
-    else:
-        st.error("No se pudieron obtener los datos de opciones. Por favor, intente con otro ticker o fecha de vencimiento.")
-
-    # Estrategias de Opciones
+    # Opciones mejoradas
     display_improved_options_strategy(ticker, precio_actual)
-
-    # Descripción de Estrategias de Opciones
-    st.subheader("📈 Descripción de Estrategias de Opciones")
-    st.markdown("""
-    ### Estrategias Comunes:
-    1. **📊 Call Compra**: Usar cuando se espera un aumento significativo en el precio del activo subyacente.
-    2. **🔻 Put Venta**: Estrategia defensiva para protegerse de una caída en el precio del subyacente.
-    3. **⚖️ Cono Comprado (Long Straddle)**: Aprovechar la alta volatilidad, comprando una call y una put con el mismo strike y vencimiento.
-    4. **🔒 Cono Vendido (Short Straddle)**: Beneficiarse de baja volatilidad, vendiendo una call y una put con el mismo strike y vencimiento.
-    5. **🛡️ Collar**: Proteger una posición larga en acciones, vendiendo una call y comprando una put.
-    6. **📈 Bull Call Spread**: Beneficiarse de un movimiento alcista limitado, comprando una call y vendiendo otra con strike más alto.
-    7. **📉 Bear Put Spread**: Beneficiarse de un movimiento bajista limitado, comprando una put y vendiendo otra con strike más bajo.
-    8. **🦋 Mariposa (Butterfly Spread)**: Beneficiarse de baja volatilidad o cuando se espera que el precio se mantenga en un rango estrecho.
-
-    Cada estrategia tiene un nivel de riesgo y recompensa. La clave es seleccionar la adecuada en función de la volatilidad implícita y la tendencia del mercado.
-    """)
 
     # Crecimiento de ingresos y beneficios
     st.subheader(f"💰 Ganancias por acción anuales para {stock}")
@@ -495,5 +414,4 @@ else:
 
 if __name__ == "__main__":
     main()
-
-El siguiente codigo no está mostrando la volatilidad implicita, su analisis y los dataframes de calls y puts, averigua por que
+    
