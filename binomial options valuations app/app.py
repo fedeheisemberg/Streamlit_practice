@@ -4,6 +4,13 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
+import os
+import sys
+from pathlib import Path
+
+# Asegurar que streamlit pueda encontrar el módulo
+file_path = Path(__file__).parent.absolute()
+sys.path.append(str(file_path))
 
 def get_stock_data(ticker):
     """Obtiene datos del activo desde Yahoo Finance"""
@@ -106,7 +113,7 @@ st.title('Calculadora de Opciones - Modelo Binomial')
 col1, col2 = st.columns(2)
 
 with col1:
-    ticker = st.text_input('Símbolo del activo (ej: AAPL)', 'AAPL')
+    ticker = st.text_input('Símbolo del activo (ej: GGAL)', 'GGAL')
     try:
         current_price, stock = get_stock_data(ticker)
         st.success(f'Precio actual de {ticker}: ${current_price:.2f}')
