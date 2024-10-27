@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import plotly
 import plotly.graph_objects as go
 
 class InventoryValuation:
