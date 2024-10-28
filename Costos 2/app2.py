@@ -4,6 +4,13 @@ import numpy as np
 from datetime import datetime
 import altair as alt
 
+def initialize_session_state():
+    """Initialize all session state variables if they don't exist."""
+    if 'inventory_system' not in st.session_state:
+        st.session_state.inventory_system = InventoryValuation()
+    if 'transactions' not in st.session_state:
+        st.session_state.transactions = []
+
 class InventoryValuation:
     def __init__(self):
         self.inventory = []
@@ -137,6 +144,9 @@ class InventoryValuation:
 def main():
     st.set_page_config(page_title="📊 Valuación de Inventarios", layout="wide")
     
+    # Initialize session state at the very beginning
+    initialize_session_state()
+    
     st.title("📊 Sistema de Valuación de Inventarios")
     st.markdown("---")
     
@@ -180,16 +190,11 @@ def main():
             - Importante para análisis en contextos inflacionarios
             """)
     
-    # Selección del método de valuación
+    # Remove the old initialization section and replace with:
     method = st.selectbox(
         "Seleccione el Método de Valuación",
         ["PEPS", "UEPS", "Promedio Ponderado"]
     )
-    
-    # Inicialización del sistema
-    if 'inventory_system' not in st.session_state:
-        st.session_state.inventory_system = InventoryValuation()
-        st.session_state.transactions = []
     
     # Formulario para existencia inicial
     with st.expander("📥 Ingresar Existencia Inicial", expanded=True):
