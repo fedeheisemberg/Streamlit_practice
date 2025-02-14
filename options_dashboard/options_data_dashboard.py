@@ -82,79 +82,6 @@ def get_eps_data(ticker, company):
         st.error(f"Error al obtener datos de BPA: {e}")
         return None
 
-def plot_probability_cone(ticker, current_price, selected_expiration, iv):
-    days_to_expiration = (datetime.strptime(selected_expiration, '%Y-%m-%d') - datetime.now()).days
-    
-    # Convertimos volatilidad anual a diaria
-    iv_daily = iv / np.sqrt(252)
-    
-    # Generamos fechas futuras
-    future_dates = pd.date_range(start=datetime.now(), periods=days_to_expiration, freq='D')
-    
-    # Cálculo de intervalos de confianza
-    std_devs = np.sqrt(np.arange(1, days_to_expiration + 1)) * iv_daily
-    upper_68 = current_price * np.exp(std_devs)
-    lower_68 = current_price * np.exp(-std_devs)
-    upper_95 = current_price * np.exp(2 * std_devs)
-    lower_95 = current_price * np.exp(-2 * std_devs)
-    
-    fig = go.Figure()
-    
-    # Añadir líneas para diferentes niveles de confianza
-    fig.add_trace(go.Scatter(x=future_dates, y=upper_95, fill=None, mode='lines', 
-                            line=dict(color='rgba(0,100,80,0.2)'), name='95% Intervalo'))
-    fig.add_trace(go.Scatter(x=future_dates, y=lower_95, fill='tonexty', mode='lines', 
-                            line=dict(color='rgba(0,100,80,0.2)'), name='95% Intervalo'))
-    fig.add_trace(go.Scatter(x=future_dates, y=upper_68, fill=None, mode='lines', 
-                            line=dict(color='rgba(0,100,80,0.4)'), name='68% Intervalo'))
-    fig.add_trace(go.Scatter(x=future_dates, y=lower_68, fill='tonexty', mode='lines', 
-                            line=dict(color='rgba(0,100,80,0.4)'), name='68% Intervalo'))
-    
-    # Línea del precio actual
-    fig.add_trace(go.Scatter(x=[datetime.now(), future_dates[-1]], y=[current_price, current_price],
-                            mode='lines', line=dict(color='red', dash='dash'), name='Precio Actual'))
-    
-    fig.update_layout(
-        title='Cono de Probabilidades basado en Volatilidad Implícita',
-        xaxis_title='Fecha',
-        yaxis_title='Precio proyectado',
-        legend_title='Intervalos de Confianza',
-        showlegend=True
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-
-def display_greeks(options, current_price):
-    st.subheader("🧮 Análisis de Griegas")
-    
-    # Filtrar opciones cerca del precio actual (ATM)
-    calls_atm = options.calls[np.abs(options.calls['strike'] - current_price).idxmin()]
-    puts_atm = options.puts[np.abs(options.puts['strike'] - current_price).idxmin()]
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Griegas - Call ATM")
-        if 'delta' in calls_atm:
-            st.write(f"**Delta**: {calls_atm.get('delta', 'N/A'):.4f}")
-            st.write(f"**Gamma**: {calls_atm.get('gamma', 'N/A'):.4f}")
-            st.write(f"**Theta**: {calls_atm.get('theta', 'N/A'):.4f}")
-            st.write(f"**Vega**: {calls_atm.get('vega', 'N/A'):.4f}")
-            st.write(f"**Rho**: {calls_atm.get('rho', 'N/A'):.4f}")
-        else:
-            st.warning("Datos de griegas no disponibles para Calls")
-    
-    with col2:
-        st.subheader("Griegas - Put ATM")
-        if 'delta' in puts_atm:
-            st.write(f"**Delta**: {puts_atm.get('delta', 'N/A'):.4f}")
-            st.write(f"**Gamma**: {puts_atm.get('gamma', 'N/A'):.4f}")
-            st.write(f"**Theta**: {puts_atm.get('theta', 'N/A'):.4f}")
-            st.write(f"**Vega**: {puts_atm.get('vega', 'N/A'):.4f}")
-            st.write(f"**Rho**: {puts_atm.get('rho', 'N/A'):.4f}")
-        else:
-            st.warning("Datos de griegas no disponibles para Puts")
-
 def implement_long_straddle(options, current_price):
     st.write("### Cono Largo (Long Straddle)")
     
@@ -569,17 +496,7 @@ def main():
             else:
                 st.warning("No se puede mostrar la sonrisa de volatilidad implícita debido a datos faltantes.")
 
-            # Añadir display_greeks que no estaba en el main original
-            display_greeks(option_chain, current_price)
-
-            # Añadir plot_probability_cone que no estaba en el main original
-            if 'impliedVolatility' in option_chain.calls.columns:
-                avg_iv = option_chain.calls['impliedVolatility'].mean()
-                plot_probability_cone(ticker, current_price, expiration, avg_iv)
-            else:
-                st.warning("No se puede mostrar el cono de probabilidad debido a datos faltantes de volatilidad implícita.")
-
-            # Estrategias de Opciones
+    # Estrategias de Opciones
             display_options_strategy(ticker, current_price, expiration)
 
     # Descripción de Estrategias de Opciones
@@ -625,7 +542,7 @@ def main():
         
         st.plotly_chart(fig, use_container_width=True)
 
-    # Feedback
+# Feedback
     st.subheader("📝 ¡Queremos saber tu opinión!")
     st.markdown("¿Qué más te gustaría ver en este proyecto? ¿Te interesaría un proyecto de opciones más complejo? ¡Tu feedback es muy importante para nosotros!")
 
@@ -651,4 +568,9 @@ def main():
     
     # Footer usando markdown de Streamlit
     st.markdown("---")
-    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://optima-learning--ashy.vercel.app/) | [Página Web](https://www.optimafinancials.com/)")
+    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://optima-learning--ashy.vercel.app/) | [Página Web](https://www.optimafinancials.com/)" )
+
+
+
+if __name__ == "__main__":
+    main()
