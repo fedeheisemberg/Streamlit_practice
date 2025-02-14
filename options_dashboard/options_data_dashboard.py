@@ -617,9 +617,6 @@ def main():
                     mime="text/csv",
                 )
             
-            # Mostrar Griegas
-            display_greeks(option_chain, current_price)
-            
             # Análisis de Volatilidad Implícita
             st.subheader("Análisis de Volatilidad Implícita")
             st.markdown("""
@@ -635,22 +632,10 @@ def main():
                 fig_vol.add_trace(go.Scatter(x=option_chain.puts['strike'], y=option_chain.puts['impliedVolatility'], mode='lines', name='Puts'))
                 fig_vol.update_layout(title='📊 Sonrisa de Volatilidad Implícita', xaxis_title='Precio de Ejercicio', yaxis_title='Volatilidad Implícita')
                 st.plotly_chart(fig_vol, use_container_width=True)
-                
-                # Estructura Temporal de Volatilidad
-                plot_volatility_term_structure(ticker)
-                
-                # Cono de Probabilidades
-                if 'impliedVolatility' in option_chain.calls.columns:
-                    iv = option_chain.calls['impliedVolatility'].mean()
-                    plot_probability_cone(ticker, current_price, expiration, iv)
-                    
-                    # Distribución de Precio
-                    days_to_expiration = (datetime.strptime(expiration, '%Y-%m-%d') - datetime.now()).days
-                    plot_price_distribution(current_price, iv, days_to_expiration)
             else:
                 st.warning("No se puede mostrar la sonrisa de volatilidad implícita debido a datos faltantes.")
 
-            # Estrategias de Opciones
+    # Estrategias de Opciones
             display_options_strategy(ticker, current_price, expiration)
 
     # Descripción de Estrategias de Opciones
@@ -696,7 +681,7 @@ def main():
         
         st.plotly_chart(fig, use_container_width=True)
 
-    # Feedback
+# Feedback
     st.subheader("📝 ¡Queremos saber tu opinión!")
     st.markdown("¿Qué más te gustaría ver en este proyecto? ¿Te interesaría un proyecto de opciones más complejo? ¡Tu feedback es muy importante para nosotros!")
 
@@ -722,7 +707,9 @@ def main():
     
     # Footer usando markdown de Streamlit
     st.markdown("---")
-    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://optima-learning--ashy.vercel.app/) | [Página Web](https://www.optimafinancials.com/)")
+    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://optima-learning--ashy.vercel.app/) | [Página Web](https://www.optimafinancials.com/)" )
 
-    if __name__ == '__main__':
-        main()
+
+
+if __name__ == "__main__":
+    main()
