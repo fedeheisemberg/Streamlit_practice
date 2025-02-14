@@ -12,10 +12,14 @@ from subscription_manager import save_feedback
 import numpy as np
 import matplotlib.pyplot as plt
 
+@st.cache_data
+def get_cached_option_data(_ticker, expiration):
+    return get_option_data(_ticker, expiration)
 
-def get_option_data(ticker, expiration):
+
+def get_option_data(_ticker, expiration):
     try:
-        option_chain = ticker.option_chain(expiration)
+        option_chain = _ticker.option_chain(expiration)
         if 'impliedVolatility' not in option_chain.calls.columns or 'impliedVolatility' not in option_chain.puts.columns:
             st.warning("Los datos de volatilidad implícita no están disponibles. Algunas gráficas pueden no mostrarse.")
         return option_chain
@@ -304,7 +308,144 @@ def implement_iron_condor(options, current_price):
     
     plot_profit_loss_profile(options, current_price, lambda strike: quantity * (min(call_otm['strike'], max(put_otm['strike'], strike)) - current_price + condor_credit / 100), "Cóndor de Hierro")
 
-# After each call to plot_profit_loss_profile in each strategy function, add the following code:
+def plot_probability_cone(ticker, current_price, selected_expiration, iv):
+    days_to_expiration = (datetime.strptime(selected_expiration, '%Y-%m-%d') - datetime.now()).days
+    
+    # Convertimos volatilidad anual a diaria
+    iv_daily = iv / np.sqrt(252)
+    
+    # Generamos fechas futuras
+    future_dates = pd.date_range(start=datetime.now(), periods=days_to_expiration, freq='D')
+    
+    # Cálculo de intervalos de confianza
+    std_devs = np.sqrt(np.arange(1, days_to_expiration + 1)) * iv_daily
+    upper_68 = current_price * np.exp(std_devs)
+    lower_68 = current_price * np.exp(-std_devs)
+    upper_95 = current_price * np.exp(2 * std_devs)
+    lower_95 = current_price * np.exp(-2 * std_devs)
+    
+    fig = go.Figure()
+    
+    # Añadir líneas para diferentes niveles de confianza
+    fig.add_trace(go.Scatter(x=future_dates, y=upper_95, fill=None, mode='lines', 
+                            line=dict(color='rgba(0,100,80,0.2)'), name='95% Intervalo'))
+    fig.add_trace(go.Scatter(x=future_dates, y=lower_95, fill='tonexty', mode='lines', 
+                            line=dict(color='rgba(0,100,80,0.2)'), name='95% Intervalo'))
+    fig.add_trace(go.Scatter(x=future_dates, y=upper_68, fill=None, mode='lines', 
+                            line=dict(color='rgba(0,100,80,0.4)'), name='68% Intervalo'))
+    fig.add_trace(go.Scatter(x=future_dates, y=lower_68, fill='tonexty', mode='lines', 
+                            line=dict(color='rgba(0,100,80,0.4)'), name='68% Intervalo'))
+    
+    # Línea del precio actual
+    fig.add_trace(go.Scatter(x=[datetime.now(), future_dates[-1]], y=[current_price, current_price],
+                            mode='lines', line=dict(color='red', dash='dash'), name='Precio Actual'))
+    
+    fig.update_layout(
+        title='Cono de Probabilidades basado en Volatilidad Implícita',
+        xaxis_title='Fecha',
+        yaxis_title='Precio proyectado',
+        legend_title='Intervalos de Confianza',
+        showlegend=True
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def plot_price_distribution(current_price, iv, days_to_expiration):
+    # Convertir volatilidad anual a la duración hasta el vencimiento
+    vol_to_expiry = iv * np.sqrt(days_to_expiration / 252)
+    
+    # Generar rango de precios
+    price_range = np.linspace(current_price * 0.5, current_price * 1.5, 1000)
+    
+    # Calcular PDF (función de densidad de probabilidad) log-normal
+    pdf = (1 / (price_range * vol_to_expiry * np.sqrt(2 * np.pi))) * \
+          np.exp(-((np.log(price_range / current_price) + vol_to_expiry**2 / 2)**2) / (2 * vol_to_expiry**2))
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=price_range, y=pdf, mode='lines', fill='tozeroy',
+                             line=dict(color='blue'), name='Distribución de Probabilidad'))
+    
+    fig.add_vline(x=current_price, line_dash="dash", line_color="red", 
+                   annotation_text="Precio actual")
+    
+    fig.update_layout(
+        title='Distribución de Probabilidad del Precio al Vencimiento',
+        xaxis_title='Precio',
+        yaxis_title='Densidad de Probabilidad',
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def display_greeks(options, current_price):
+    st.subheader("🧮 Análisis de Griegas")
+    
+    # Filtrar opciones cerca del precio actual (ATM)
+    calls_atm = options.calls[np.abs(options.calls['strike'] - current_price).idxmin()]
+    puts_atm = options.puts[np.abs(options.puts['strike'] - current_price).idxmin()]
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Griegas - Call ATM")
+        if 'delta' in calls_atm:
+            st.write(f"**Delta**: {calls_atm.get('delta', 'N/A'):.4f}")
+            st.write(f"**Gamma**: {calls_atm.get('gamma', 'N/A'):.4f}")
+            st.write(f"**Theta**: {calls_atm.get('theta', 'N/A'):.4f}")
+            st.write(f"**Vega**: {calls_atm.get('vega', 'N/A'):.4f}")
+            st.write(f"**Rho**: {calls_atm.get('rho', 'N/A'):.4f}")
+        else:
+            st.warning("Datos de griegas no disponibles para Calls")
+    
+    with col2:
+        st.subheader("Griegas - Put ATM")
+        if 'delta' in puts_atm:
+            st.write(f"**Delta**: {puts_atm.get('delta', 'N/A'):.4f}")
+            st.write(f"**Gamma**: {puts_atm.get('gamma', 'N/A'):.4f}")
+            st.write(f"**Theta**: {puts_atm.get('theta', 'N/A'):.4f}")
+            st.write(f"**Vega**: {puts_atm.get('vega', 'N/A'):.4f}")
+            st.write(f"**Rho**: {puts_atm.get('rho', 'N/A'):.4f}")
+        else:
+            st.warning("Datos de griegas no disponibles para Puts")
+
+def plot_volatility_term_structure(ticker):
+    expirations = ticker.options
+    if len(expirations) <2:
+        st.warning("No hay suficientes vencimientos para mostrar la estructura temporal de volatilidad.")
+        return
+    
+    atm_ivs = []
+    expiration_dates = []
+    
+    for expiration in expirations:
+        option_chain = get_option_data(ticker, expiration)
+        if option_chain is None or 'impliedVolatility' not in option_chain.calls.columns:
+            continue
+        
+        # Obtener el precio actual
+        current_price = ticker.history(period="1d")['Close'].iloc[-1]
+        
+        # Obtener la opción ATM
+        calls_atm = option_chain.calls[np.abs(option_chain.calls['strike'] - current_price).idxmin()]
+        
+        if 'impliedVolatility' in calls_atm:
+            atm_ivs.append(calls_atm['impliedVolatility'])
+            expiration_dates.append(datetime.strptime(expiration, '%Y-%m-%d'))
+    
+    if len(atm_ivs) < 2:
+        st.warning("No hay suficientes datos de volatilidad para mostrar la estructura temporal.")
+        return
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=expiration_dates, y=atm_ivs, mode='lines+markers',
+                             name='Volatilidad Implícita ATM'))
+    
+    fig.update_layout(
+        title='Estructura Temporal de Volatilidad Implícita',
+        xaxis_title='Fecha de Vencimiento',
+        yaxis_title='Volatilidad Implícita ATM',
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
 
 def plot_profit_loss_profile(options, current_price, profit_loss_function, strategy_name):
     strikes = np.linspace(options.calls['strike'].min(), options.calls['strike'].max(), 100)
@@ -388,21 +529,202 @@ def display_options_strategy(ticker, current_price, selected_expiration):
     
     strategy_functions[strategy](options, current_price)
 
+def monte_carlo_simulation(current_price, vol, days, num_simulations=1000):
+    dt = 1/252
+    sqrt_dt = np.sqrt(dt)
+    
+    # Matriz para almacenar todas las simulaciones
+    simulations = np.zeros((days, num_simulations))
+    simulations[0] = current_price
+    
+    for i in range(1, days):
+        z = np.random.standard_normal(num_simulations)
+        simulations[i] = simulations[i-1] * np.exp((0 - 0.5 * vol**2) * dt + vol * sqrt_dt * z)
+    
+    return simulations
+
+def plot_monte_carlo(ticker, current_price, days_to_simulate=252):
+    hist_data = ticker.history(period="1y")
+    returns = np.log(hist_data['Close'] / hist_data['Close'].shift(1)).dropna()
+    vol = returns.std() * np.sqrt(252)  # anualizar volatilidad
+    
+    simulations = monte_carlo_simulation(current_price, vol, days_to_simulate)
+    
+    fig = go.Figure()
+    
+    # Plotear algunas trayectorias individuales
+    for i in range(min(100, simulations.shape[1])):
+        fig.add_trace(go.Scatter(
+            y=simulations[:, i],
+            mode='lines',
+            line=dict(width=0.5, color='rgba(70, 130, 180, 0.1)'),
+            showlegend=False
+        ))
+    
+    # Calcular y plotear los percentiles
+    percentiles = np.percentile(simulations, [5, 50, 95], axis=1)
+    
+    fig.add_trace(go.Scatter(
+        y=percentiles[1, :],
+        mode='lines',
+        line=dict(color='blue', width=2),
+        name='Mediana'
+    ))
+    
+    fig.add_trace(go.Scatter(
+        y=percentiles[2, :],
+        mode='lines',
+        line=dict(color='red', width=1.5, dash='dash'),
+        name='Percentil 95'
+    ))
+    
+    fig.add_trace(go.Scatter(
+        y=percentiles[0, :],
+        mode='lines',
+        line=dict(color='green', width=1.5, dash='dash'),
+        name='Percentil 5'
+    ))
+    
+    fig.update_layout(
+        title='Simulación de Monte Carlo - Proyección de Precios (1 año)',
+        xaxis_title='Días de Operación',
+        yaxis_title='Precio Proyectado',
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def plot_correlation_with_market(ticker_symbol):
+    benchmark = '^MERV'  # Usa MERVAL para acciones argentinas, o cambia a SPY/^GSPC para USA
+    
+    # Obtener datos
+    ticker_data = yf.download(ticker_symbol, period="1y")['Adj Close']
+    market_data = yf.download(benchmark, period="1y")['Adj Close']
+    
+    # Alinear los datos
+    df = pd.DataFrame({'Ticker': ticker_data, 'Mercado': market_data})
+    df = df.dropna()
+    
+    # Calcular retornos diarios
+    returns = df.pct_change().dropna()
+    
+    # Calcular correlación
+    correlation = returns['Ticker'].corr(returns['Mercado'])
+    
+    # Crear scatter plot
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=returns['Mercado'],
+        y=returns['Ticker'],
+        mode='markers',
+        marker=dict(
+            size=8,
+            color='blue',
+            opacity=0.6
+        ),
+        name='Retornos Diarios'
+    ))
+    
+    # Línea de regresión
+    slope, intercept = np.polyfit(returns['Mercado'], returns['Ticker'], 1)
+    x_range = np.linspace(returns['Mercado'].min(), returns['Mercado'].max(), 100)
+    y_fit = slope * x_range + intercept
+    
+    fig.add_trace(go.Scatter(
+        x=x_range,
+        y=y_fit,
+        mode='lines',
+        line=dict(color='red'),
+        name=f'Beta = {slope:.2f}'
+    ))
+    
+    fig.update_layout(
+        title=f'Correlación con el Mercado (Beta = {slope:.2f}, Correlación = {correlation:.2f})',
+        xaxis_title='Retorno del Mercado',
+        yaxis_title=f'Retorno de {ticker_symbol}',
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def hedging_calculator(ticker, current_price, shares_owned):
+    st.subheader("🛡️ Calculadora de Cobertura (Hedging)")
+    
+    st.write(f"Posición actual: {shares_owned} acciones a ${current_price:.2f} = ${shares_owned * current_price:.2f}")
+    
+    # Opciones disponibles
+    expirations = ticker.options
+    if not expirations:
+        st.warning("No hay opciones disponibles para coberturas")
+        return
+    
+    expiration = st.selectbox("Seleccionar vencimiento para cobertura", expirations, key="hedge_expiry")
+    options = get_option_data(ticker, expiration)
+    
+    if options is None or 'puts' not in options.__dict__:
+        st.warning("No se pudieron obtener datos de puts para la cobertura")
+        return
+    
+    # Mostrar puts disponibles para cobertura
+    st.dataframe(options.puts)
+    
+    # Selector de puts para cobertura
+    selected_put_strike = st.number_input("Seleccionar precio de ejercicio del put para cobertura", 
+                                         min_value=float(options.puts['strike'].min()),
+                                         max_value=float(options.puts['strike'].max()),
+                                         value=float(current_price * 0.9))
+    
+    # Encontrar el put más cercano al strike seleccionado
+    put_index = np.abs(options.puts['strike'] - selected_put_strike).idxmin()
+    selected_put = options.puts.iloc[put_index]
+    
+    # Calcular número de contratos necesarios
+    contracts_needed = shares_owned / 100
+    if contracts_needed < 1:
+        contracts_needed = 1
+    
+    st.write(f"Put seleccionado - Strike: ${selected_put['strike']:.2f}, Prima: ${selected_put['lastPrice']:.2f}")
+    st.write(f"Contratos de put recomendados: {int(np.ceil(contracts_needed))}")
+    
+    # Costo de la cobertura
+    hedge_cost = int(np.ceil(contracts_needed)) * selected_put['lastPrice'] * 100
+    hedge_coverage = int(np.ceil(contracts_needed)) * 100
+    
+    st.write(f"Costo total de la cobertura: ${hedge_cost:.2f}")
+    st.write(f"Protección: {hedge_coverage} acciones de {shares_owned} ({hedge_coverage/shares_owned*100:.0f}%)")
+    
+    # Análisis de escenarios
+    st.subheader("Análisis de Escenarios con Cobertura")
+    
+    price_changes = [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3]
+    scenarios = []
+    
+    for change in price_changes:
+        new_price = current_price * (1 + change)
+        stock_pl = shares_owned * (new_price - current_price)
+        
+        # Cálculo del P&L de los puts
+        if new_price <selected_put['strike']:
+            put_pl = (selected_put['strike'] - new_price) * hedge_coverage - hedge_cost
+        else:
+            put_pl = -hedge_cost
+            
+        total_pl = stock_pl + put_pl
+        
+        scenarios.append({
+            "Cambio %": f"{change*100:.0f}%",
+            "Nuevo Precio": f"${new_price:.2f}",
+            "P&L Acciones": f"${stock_pl:.2f}",
+            "P&L Cobertura": f"${put_pl:.2f}",
+            "P&L Total": f"${total_pl:.2f}"
+        })
+    
+    df_scenarios = pd.DataFrame(scenarios)
+    st.dataframe(df_scenarios)
+
 def main():
     stock = st.text_input("Ingrese el símbolo del ticker del activo subyacente", value="GGAL")
-    st.header(f'📊 Panel de Opciones para {stock}')
-
     ticker = yf.Ticker(stock)
-
-    # Ratios Financieros
-    st.subheader("📊 Ratios Financieros")
-    info = ticker.info
-    st.write(f"**Ratio P/E**: {info.get('trailingPE', 'N/A')}")
-    st.write(f"**Ratio P/B**: {info.get('priceToBook', 'N/A')}")
-    st.write(f"**Rendimiento del Dividendo**: {info.get('dividendYield', 'N/A') * 100 if info.get('dividendYield') else 'N/A'}%")
-    st.write(f"**Beta**: {info.get('beta', 'N/A')}")
-
-    # Precio Actual
+    
+    # Obtener precio actual
     try:
         data = ticker.history(period="1d")
         if not data.empty:
@@ -414,77 +736,122 @@ def main():
     except Exception as e:
         st.error(f"Error al obtener datos: {e}")
         return
-
-    # Gráfico de Precios Históricos
+    
+    # Información General
+    st.header(f'📊 Panel de Opciones para {stock}')
+    
+    # Ratios Financieros extendidos
+    st.subheader("📊 Ratios Financieros")
+    info = ticker.info
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write(f"**Ratio P/E**: {info.get('trailingPE', 'N/A')}")
+        st.write(f"**Ratio P/B**: {info.get('priceToBook', 'N/A')}")
+        st.write(f"**Rendimiento del Dividendo**: {info.get('dividendYield', 'N/A') * 100 if info.get('dividendYield') else 'N/A'}%")
+        st.write(f"**Beta**: {info.get('beta', 'N/A')}")
+    
+    with col2:
+        st.write(f"**ROE**: {info.get('returnOnEquity', 'N/A') * 100 if info.get('returnOnEquity') else 'N/A'}%")
+        st.write(f"**ROA**: {info.get('returnOnAssets', 'N/A') * 100 if info.get('returnOnAssets') else 'N/A'}%")
+        st.write(f"**Margen Operativo**: {info.get('operatingMargins', 'N/A') * 100 if info.get('operatingMargins') else 'N/A'}%")
+        st.write(f"**FCF Yield**: {info.get('freeCashflowYield', 'N/A') * 100 if info.get('freeCashflowYield') else 'N/A'}%")
+    
+    # Gráfico de precios históricos
     st.subheader("📈 Gráfico de Precios Históricos")
     period = st.selectbox('Seleccionar período', ['1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'])
-    
     hist_data = ticker.history(period=period)
     plot_candlestick_chart(hist_data)
-
+    
+    # Análisis Técnico
+    st.header("📊 Análisis Técnico")
+    
     # MACD
     st.subheader("📉 MACD")
+    hist_data = ticker.history(period="6mo")
     macd, signal_line, histogram = calculate_macd(hist_data)
     fig_macd = go.Figure()
     fig_macd.add_trace(go.Scatter(x=hist_data.index, y=macd, mode='lines', name='MACD'))
     fig_macd.add_trace(go.Scatter(x=hist_data.index, y=signal_line, mode='lines', name='Línea de Señal'))
     fig_macd.add_trace(go.Bar(x=hist_data.index, y=histogram, name='Histograma'))
-    fig_macd.update_layout(title=f'MACD para {stock}', xaxis_title='Fecha', yaxis_title='MACD')
     st.plotly_chart(fig_macd, use_container_width=True)
-
-    # Opciones
+    
+    # Correlación con el mercado
+    st.subheader("🔄 Correlación con el Mercado")
+    plot_correlation_with_market(stock)
+    
+    # Datos de Opciones
+    st.header("🎯 Datos de Opciones")
+    
     expirations = ticker.options
-    if not expirations:
-        st.error(f"No hay datos de opciones disponibles para {stock}")
-    else:
-        expiration = st.selectbox("📅 Seleccionar Fecha de Vencimiento", expirations, key="main_expiration_selector")
-        
-        option_chain = get_option_data(ticker, expiration)
+    if expirations:
+        expiration = st.selectbox("📅 Seleccionar Fecha de Vencimiento", expirations)
+        option_chain = get_cached_option_data(ticker, expiration)
         
         if option_chain is not None:
             col1, col2 = st.columns(2)
-            
             with col1:
                 st.subheader("📈 Calls")
                 st.dataframe(option_chain.calls)
-                st.download_button(
-                    label="Descargar Datos de Calls",
-                    data=option_chain.calls.to_csv(index=False),
-                    file_name=f"{stock}_calls_{expiration}.csv",
-                    mime="text/csv",
-                )
-            
             with col2:
                 st.subheader("📉 Puts")
                 st.dataframe(option_chain.puts)
-                st.download_button(
-                    label="Descargar Datos de Puts",
-                    data=option_chain.puts.to_csv(index=False),
-                    file_name=f"{stock}_puts_{expiration}.csv",
-                    mime="text/csv",
-                )
             
-            # Análisis de Volatilidad Implícita
-            st.subheader("Análisis de Volatilidad Implícita")
-            st.markdown("""
-            La sonrisa de volatilidad implícita refleja cómo cambia la volatilidad con el precio de ejercicio.
-            Una sonrisa pronunciada indica mayor incertidumbre en los extremos del rango de precios del activo subyacente.
-            Las opciones at-the-money tienden a tener menor volatilidad implícita, mientras que las opciones out-of-the-money (OTM) muestran mayor volatilidad debido al riesgo.
-            """)
+            # Análisis de Volatilidad y Griegas
+            display_greeks(option_chain, current_price)
+            plot_volatility_term_structure(ticker)
             
-            # Sonrisa de Volatilidad Implícita
-            if 'impliedVolatility' in option_chain.calls.columns and 'impliedVolatility' in option_chain.puts.columns:
-                fig_vol = go.Figure()
-                fig_vol.add_trace(go.Scatter(x=option_chain.calls['strike'], y=option_chain.calls['impliedVolatility'], mode='lines', name='Calls'))
-                fig_vol.add_trace(go.Scatter(x=option_chain.puts['strike'], y=option_chain.puts['impliedVolatility'], mode='lines', name='Puts'))
-                fig_vol.update_layout(title='📊 Sonrisa de Volatilidad Implícita', xaxis_title='Precio de Ejercicio', yaxis_title='Volatilidad Implícita')
-                st.plotly_chart(fig_vol, use_container_width=True)
-            else:
-                st.warning("No se puede mostrar la sonrisa de volatilidad implícita debido a datos faltantes.")
-
-    # Estrategias de Opciones
+            # Estrategias de Opciones
+            st.header("💡 Estrategias de Opciones")
             display_options_strategy(ticker, current_price, expiration)
-
+    else:
+        st.error(f"No hay datos de opciones disponibles para {stock}")
+    
+    # Análisis Fundamental
+    st.header("📊 Análisis Fundamental")
+    
+    # Ratios financieros detallados
+    st.subheader("Métricas Fundamentales")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.write("**Valuación**")
+        st.write(f"P/E: {info.get('trailingPE', 'N/A')}")
+        st.write(f"P/B: {info.get('priceToBook', 'N/A')}")
+        st.write(f"P/S: {info.get('priceToSalesTrailing12Months', 'N/A')}")
+    
+    with col2:
+        st.write("**Rentabilidad**")
+        st.write(f"ROE: {info.get('returnOnEquity', 'N/A') * 100 if info.get('returnOnEquity') else 'N/A'}%")
+        st.write(f"ROA: {info.get('returnOnAssets', 'N/A') * 100 if info.get('returnOnAssets') else 'N/A'}%")
+        st.write(f"Margen Operativo: {info.get('operatingMargins', 'N/A') * 100 if info.get('operatingMargins') else 'N/A'}%")
+    
+    with col3:
+        st.write("**Crecimiento**")
+        st.write(f"Crecimiento Ingresos: {info.get('revenueGrowth', 'N/A') * 100 if info.get('revenueGrowth') else 'N/A'}%")
+        st.write(f"Crecimiento EPS: {info.get('earningsGrowth', 'N/A') * 100 if info.get('earningsGrowth') else 'N/A'}%")
+    
+    # Simulaciones y Proyecciones
+    st.header("🔮 Simulaciones y Proyecciones")
+    
+    # Monte Carlo
+    st.subheader("📈 Simulación de Monte Carlo")
+    plot_monte_carlo(ticker, current_price)
+    
+    # Cono de probabilidad
+    st.subheader("🎯 Cono de Probabilidad")
+    if len(ticker.options) > 0:
+        expiration = ticker.options[0]
+        option_chain = get_cached_option_data(ticker, expiration)
+        if option_chain is not None and 'impliedVolatility' in option_chain.calls.columns:
+            iv = option_chain.calls['impliedVolatility'].mean()
+            plot_probability_cone(ticker, current_price, expiration, iv)
+    
+    # Calculadora de Cobertura
+    st.header("🛡️ Calculadora de Cobertura")
+    shares_owned = st.number_input("Número de acciones a cubrir", min_value=0, value=100)
+    hedging_calculator(ticker, current_price, shares_owned)
+    
     # Descripción de Estrategias de Opciones
     st.subheader("📈 Descripción de Estrategias de Opciones")
     st.markdown("""
@@ -498,37 +865,9 @@ def main():
     7. **📉 Spread Bajista de Puts**: Beneficiarse de un movimiento bajista limitado comprando un put y vendiendo otro con un precio de ejercicio más bajo.
     8. **🦋 Mariposa Larga**: Beneficiarse de la baja volatilidad o cuando se espera que el precio se mantenga dentro de un rango estrecho.
     9. **🦅 Cóndor de Hierro**: Estrategia de volatilidad neutral que se beneficia cuando el precio del activo subyacente permanece dentro de un rango específico.
-
-    Cada estrategia tiene su propio perfil de riesgo y recompensa. La clave es seleccionar la apropiada basándose en la volatilidad implícita y las tendencias del mercado.
     """)
-
-    # Crecimiento del Beneficio Por Acción
-    st.subheader(f"💰 Beneficio Por Acción Anual para {stock}")
-    eps_data = get_eps_data(stock, stock.lower())
-    if eps_data is not None:
-        st.dataframe(eps_data)
-        
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=eps_data['Fecha'],
-            y=eps_data['BPA (Beneficio Por Acción)'],
-            mode='lines+markers',
-            name='BPA'
-        ))
-        
-        fig.update_layout(
-            title=f'📅 Beneficio Por Acción (BPA) Anual para {stock}',
-            xaxis_title='Fecha',
-            yaxis_title='BPA (Beneficio Por Acción)',
-            xaxis=dict(
-                rangeslider=dict(visible=True),
-                type='date'
-            )
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-
-# Feedback
+    
+    # Feedback
     st.subheader("📝 ¡Queremos saber tu opinión!")
     st.markdown("¿Qué más te gustaría ver en este proyecto? ¿Te interesaría un proyecto de opciones más complejo? ¡Tu feedback es muy importante para nosotros!")
 
@@ -552,11 +891,9 @@ def main():
         else:
             st.error("⚠️ Por favor, ingresa tu feedback.")
     
-    # Footer usando markdown de Streamlit
+    # Footer
     st.markdown("---")
-    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://www.optimalearning.site/) | [Página Web](https://www.optimafinancials.com/)" )
-
-
+    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://optima-learning--ashy.vercel.app/) | [Página Web](https://www.optimafinancials.com/)")
 
 if __name__ == "__main__":
     main()
