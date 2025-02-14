@@ -588,13 +588,37 @@ def main():
 
     ticker = yf.Ticker(stock)
 
-    # Ratios Financieros
-    st.subheader("📊 Ratios Financieros")
+    # Ratios Financieros Ampliados
+    st.subheader("📊 Ratios Financieros Ampliados")
     info = ticker.info
+
+    # Capitalización de mercado y valor empresarial
+    st.write(f"**Capitalización de Mercado**: ${info.get('marketCap', 'N/A'):,}")
+    st.write(f"**Valor Empresarial (EV)**: ${info.get('enterpriseValue', 'N/A'):,}")
+
+    # Ratios de Rentabilidad
     st.write(f"**Ratio P/E**: {info.get('trailingPE', 'N/A')}")
     st.write(f"**Ratio P/B**: {info.get('priceToBook', 'N/A')}")
     st.write(f"**Rendimiento del Dividendo**: {info.get('dividendYield', 'N/A') * 100 if info.get('dividendYield') else 'N/A'}%")
+    st.write(f"**Margen de Beneficio Neto**: {info.get('profitMargins', 'N/A') * 100 if info.get('profitMargins') else 'N/A'}%")
+    # EBITDA con manejo de errores
+    ebitda = info.get('ebitda', None)
+    if ebitda is not None:
+        st.write(f"**EBITDA**: ${ebitda:,}")
+    else:
+        st.write("**EBITDA**: N/A")
     st.write(f"**Beta**: {info.get('beta', 'N/A')}")
+
+    # Ratios de Eficiencia y Rentabilidad
+    st.write(f"**ROE (Return on Equity)**: {info.get('returnOnEquity', 'N/A') * 100 if info.get('returnOnEquity') else 'N/A'}%")
+    st.write(f"**ROA (Return on Assets)**: {info.get('returnOnAssets', 'N/A') * 100 if info.get('returnOnAssets') else 'N/A'}%")
+
+    # Ratios de Endeudamiento
+    st.write(f"**Debt to Equity Ratio**: {info.get('debtToEquity', 'N/A')}")
+
+    # Crecimientos
+    st.write(f"**Crecimiento de Ingresos**: {info.get('revenueGrowth', 'N/A') * 100 if info.get('revenueGrowth') else 'N/A'}%")
+    st.write(f"**Crecimiento de BPA (Beneficio Por Acción)**: {info.get('earningsGrowth', 'N/A') * 100 if info.get('earningsGrowth') else 'N/A'}%")
 
     # Precio Actual
     try:
