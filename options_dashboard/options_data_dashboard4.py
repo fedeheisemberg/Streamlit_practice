@@ -3,12 +3,17 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
 from subscription_manager import save_feedback
 import numpy as np
+
+# Función para determinar el modo (oscuro o claro)
+def get_theme():
+    return st.get_option("theme.base")
+
 
 def get_option_data(ticker, expiration):
     try:
@@ -301,144 +306,199 @@ def implement_iron_condor(options, current_price):
     
     plot_profit_loss_profile(options, current_price, lambda strike: quantity * (min(call_otm['strike'], max(put_otm['strike'], strike)) - current_price + condor_credit / 100), "Cóndor de Hierro")
 
-def plot_probability_cone(ticker, current_price, selected_expiration, iv):
-    days_to_expiration = (datetime.strptime(selected_expiration, '%Y-%m-%d') - datetime.now()).days
-    
-    # Convertimos volatilidad anual a diaria
-    iv_daily = iv / np.sqrt(252)
-    
-    # Generamos fechas futuras
-    future_dates = pd.date_range(start=datetime.now(), periods=days_to_expiration, freq='D')
-    
-    # Cálculo de intervalos de confianza
-    std_devs = np.sqrt(np.arange(1, days_to_expiration + 1)) * iv_daily
-    upper_68 = current_price * np.exp(std_devs)
-    lower_68 = current_price * np.exp(-std_devs)
-    upper_95 = current_price * np.exp(2 * std_devs)
-    lower_95 = current_price * np.exp(-2 * std_devs)
-    
-    fig = go.Figure()
-    
-    # Añadir líneas para diferentes niveles de confianza
-    fig.add_trace(go.Scatter(x=future_dates, y=upper_95, fill=None, mode='lines', 
-                            line=dict(color='rgba(0,100,80,0.2)'), name='95% Intervalo'))
-    fig.add_trace(go.Scatter(x=future_dates, y=lower_95, fill='tonexty', mode='lines', 
-                            line=dict(color='rgba(0,100,80,0.2)'), name='95% Intervalo'))
-    fig.add_trace(go.Scatter(x=future_dates, y=upper_68, fill=None, mode='lines', 
-                            line=dict(color='rgba(0,100,80,0.4)'), name='68% Intervalo'))
-    fig.add_trace(go.Scatter(x=future_dates, y=lower_68, fill='tonexty', mode='lines', 
-                            line=dict(color='rgba(0,100,80,0.4)'), name='68% Intervalo'))
-    
-    # Línea del precio actual
-    fig.add_trace(go.Scatter(x=[datetime.now(), future_dates[-1]], y=[current_price, current_price],
-                            mode='lines', line=dict(color='red', dash='dash'), name='Precio Actual'))
-    
-    fig.update_layout(
-        title='Cono de Probabilidades basado en Volatilidad Implícita',
-        xaxis_title='Fecha',
-        yaxis_title='Precio proyectado',
-        legend_title='Intervalos de Confianza',
-        showlegend=True
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-
-def plot_price_distribution(current_price, iv, days_to_expiration):
-    # Convertir volatilidad anual a la duración hasta el vencimiento
-    vol_to_expiry = iv * np.sqrt(days_to_expiration / 252)
-    
-    # Generar rango de precios
-    price_range = np.linspace(current_price * 0.5, current_price * 1.5, 1000)
-    
-    # Calcular PDF (función de densidad de probabilidad) log-normal
-    pdf = (1 / (price_range * vol_to_expiry * np.sqrt(2 * np.pi))) * \
-          np.exp(-((np.log(price_range / current_price) + vol_to_expiry**2 / 2)**2) / (2 * vol_to_expiry**2))
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=price_range, y=pdf, mode='lines', fill='tozeroy',
-                             line=dict(color='blue'), name='Distribución de Probabilidad'))
-    
-    fig.add_vline(x=current_price, line_dash="dash", line_color="red", 
-                   annotation_text="Precio actual")
-    
-    fig.update_layout(
-        title='Distribución de Probabilidad del Precio al Vencimiento',
-        xaxis_title='Precio',
-        yaxis_title='Densidad de Probabilidad',
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-
-def display_greeks(options, current_price):
-    st.subheader("🧮 Análisis de Griegas")
-    
-    # Filtrar opciones cerca del precio actual (ATM)
-    calls_atm = options.calls[np.abs(options.calls['strike'] - current_price).idxmin()]
-    puts_atm = options.puts[np.abs(options.puts['strike'] - current_price).idxmin()]
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Griegas - Call ATM")
-        if 'delta' in calls_atm:
-            st.write(f"**Delta**: {calls_atm.get('delta', 'N/A'):.4f}")
-            st.write(f"**Gamma**: {calls_atm.get('gamma', 'N/A'):.4f}")
-            st.write(f"**Theta**: {calls_atm.get('theta', 'N/A'):.4f}")
-            st.write(f"**Vega**: {calls_atm.get('vega', 'N/A'):.4f}")
-            st.write(f"**Rho**: {calls_atm.get('rho', 'N/A'):.4f}")
+def plot_probability_cone(hist_data, current_price, days=30):
+    """Calcula y grafica el cono de probabilidad usando volatilidad histórica"""
+    try:
+        # Obtener tema actual de Streamlit
+        theme = get_theme()
+        
+        # Colores mejorados para dark y light mode
+        if theme == "light":
+            color_3sigma = 'rgba(255, 87, 34, 0.25)'  # Naranja fuerte
+            border_3sigma = 'rgba(255, 87, 34, 0.8)'
+            color_2sigma = 'rgba(33, 150, 243, 0.3)'  # Azul vibrante
+            border_2sigma = 'rgba(33, 150, 243, 0.9)'
+            current_price_color = '#1E1E1E'  # Gris oscuro
+            line_1sigma_up = '#D32F2F'  # Rojo oscuro
+            line_1sigma_down = '#388E3C'  # Verde oscuro
+            grid_color = 'rgba(160, 160, 160, 0.5)'
+            bg_color = 'rgba(255, 255, 255, 0.9)'  # Fondo blanco
         else:
-            st.warning("Datos de griegas no disponibles para Calls")
-    
-    with col2:
-        st.subheader("Griegas - Put ATM")
-        if 'delta' in puts_atm:
-            st.write(f"**Delta**: {puts_atm.get('delta', 'N/A'):.4f}")
-            st.write(f"**Gamma**: {puts_atm.get('gamma', 'N/A'):.4f}")
-            st.write(f"**Theta**: {puts_atm.get('theta', 'N/A'):.4f}")
-            st.write(f"**Vega**: {puts_atm.get('vega', 'N/A'):.4f}")
-            st.write(f"**Rho**: {puts_atm.get('rho', 'N/A'):.4f}")
-        else:
-            st.warning("Datos de griegas no disponibles para Puts")
+            color_3sigma = 'rgba(255, 87, 34, 0.35)'
+            border_3sigma = 'rgba(255, 87, 34, 1)'
+            color_2sigma = 'rgba(33, 150, 243, 0.4)'
+            border_2sigma = 'rgba(33, 150, 243, 1)'
+            current_price_color = '#E0E0E0'  # Gris claro
+            line_1sigma_up = '#FF5252'  # Rojo claro
+            line_1sigma_down = '#66BB6A'  # Verde claro
+            grid_color = 'rgba(70, 70, 70, 0.5)'
+            bg_color = 'rgba(30, 30, 30, 0.9)'  # Fondo oscuro
+        
+        # Calcular volatilidad histórica
+        returns = np.log(hist_data['Close'] / hist_data['Close'].shift(1))
+        volatility = returns.std() * np.sqrt(252)  # Volatilidad anualizada
+        
+        # Crear rango de fechas futuras
+        future_dates = [datetime.today() + timedelta(days=i) for i in range(days)]
+        
+        # Calcular desviaciones estándar para cada día
+        time_periods = np.arange(1, days+1) / 252
+        std_devs_1 = volatility * np.sqrt(time_periods)
+        std_devs_2 = 2 * volatility * np.sqrt(time_periods)
+        std_devs_3 = 3 * volatility * np.sqrt(time_periods)
+        
+        # Calcular niveles de precios
+        upper_2sigma = current_price * (1 + std_devs_2)
+        lower_2sigma = current_price * (1 - std_devs_2)
+        upper_3sigma = current_price * (1 + std_devs_3)
+        lower_3sigma = current_price * (1 - std_devs_3)
+        
+        # Crear gráfico con colores mejorados
+        fig = go.Figure()
+        
+        # Área de 3σ (99.7% de probabilidad)
+        fig.add_trace(go.Scatter(
+            x=future_dates + future_dates[::-1],
+            y=np.concatenate([upper_3sigma, lower_3sigma[::-1]]),
+            fill='toself',
+            fillcolor=color_3sigma,
+            line=dict(color=border_3sigma),
+            name='Zona de 3σ (99.7%)'
+        ))
+        
+        # Área de 2σ (95.4% de probabilidad)
+        fig.add_trace(go.Scatter(
+            x=future_dates + future_dates[::-1],
+            y=np.concatenate([upper_2sigma, lower_2sigma[::-1]]),
+            fill='toself',
+            fillcolor=color_2sigma,
+            line=dict(color=border_2sigma),
+            name='Zona de 2σ (95.4%)'
+        ))
+        
+        # Línea central (precio actual)
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=[current_price]*days,
+            line=dict(color=current_price_color, width=2, dash='dot'),
+            name='Precio Actual'
+        ))
+        
+        # Líneas de tendencia media
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=current_price * (1 + std_devs_1),
+            line=dict(color=line_1sigma_up, width=1.5, dash='dash'),
+            name='+1σ (68.3%)'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=current_price * (1 - std_devs_1),
+            line=dict(color=line_1sigma_down, width=1.5, dash='dash'),
+            name='-1σ (68.3%)'
+        ))
+        
+        fig.update_layout(
+            title='📊 Cono de Probabilidad (Niveles Sigma)',
+            xaxis_title='Fecha',
+            yaxis_title='Precio Proyectado',
+            plot_bgcolor=bg_color,
+            paper_bgcolor='rgba(0, 0, 0, 0)',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            hovermode="x unified",
+            showlegend=True,
+            xaxis=dict(gridcolor=grid_color),
+            yaxis=dict(gridcolor=grid_color)
+        )
+        
+        # Anotaciones explicativas
+        fig.add_annotation(
+            x=future_dates[-10],
+            y=upper_3sigma[-10],
+            text="Máximo esperado (3σ)",
+            showarrow=True,
+            arrowhead=1,
+            ax=-50,
+            ay=-40
+        )
+        
+        fig.add_annotation(
+            x=future_dates[-10],
+            y=lower_3sigma[-10],
+            text="Mínimo esperado (3σ)",
+            showarrow=True,
+            arrowhead=1,
+            ax=-50,
+            ay=40
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+    except Exception as e:
+        st.error(f"Error calculando el cono de probabilidad: {e}")
 
-def plot_volatility_term_structure(ticker):
-    expirations = ticker.options
-    if len(expirations) <2:
-        st.warning("No hay suficientes vencimientos para mostrar la estructura temporal de volatilidad.")
-        return
-    
-    atm_ivs = []
-    expiration_dates = []
-    
-    for expiration in expirations:
-        option_chain = get_option_data(ticker, expiration)
-        if option_chain is None or 'impliedVolatility' not in option_chain.calls.columns:
-            continue
+
+def plot_iv_term_structure(ticker, current_price):
+    """Grafica la estructura temporal de la volatilidad implícita"""
+    try:
+        expirations = ticker.options
+        iv_data = []
         
-        # Obtener el precio actual
-        current_price = ticker.history(period="1d")['Close'].iloc[-1]
+        for exp in expirations:
+            try:
+                # Obtener datos de opciones
+                chain = ticker.option_chain(exp)
+                days_to_exp = (datetime.strptime(exp, "%Y-%m-%d") - datetime.today()).days
+                
+                # Encontrar strikes ATM
+                call_atm = chain.calls.iloc[(chain.calls['strike'] - current_price).abs().argsort()[:1]]
+                put_atm = chain.puts.iloc[(chain.puts['strike'] - current_price).abs().argsort()[:1]]
+                
+                # Calcular IV promedio
+                avg_iv = (call_atm['impliedVolatility'].values[0] + put_atm['impliedVolatility'].values[0]) / 2
+                
+                iv_data.append({
+                    'Expiración': exp,
+                    'Días': days_to_exp,
+                    'IV Promedio': avg_iv
+                })
+            except:
+                continue
         
-        # Obtener la opción ATM
-        calls_atm = option_chain.calls[np.abs(option_chain.calls['strike'] - current_price).idxmin()]
+        if not iv_data:
+            st.warning("No se encontraron datos de IV para la estructura temporal")
+            return
         
-        if 'impliedVolatility' in calls_atm:
-            atm_ivs.append(calls_atm['impliedVolatility'])
-            expiration_dates.append(datetime.strptime(expiration, '%Y-%m-%d'))
-    
-    if len(atm_ivs) < 2:
-        st.warning("No hay suficientes datos de volatilidad para mostrar la estructura temporal.")
-        return
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=expiration_dates, y=atm_ivs, mode='lines+markers',
-                             name='Volatilidad Implícita ATM'))
-    
-    fig.update_layout(
-        title='Estructura Temporal de Volatilidad Implícita',
-        xaxis_title='Fecha de Vencimiento',
-        yaxis_title='Volatilidad Implícita ATM',
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+        df_iv = pd.DataFrame(iv_data).sort_values('Días')
+        
+        # Crear gráfico
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=df_iv['Días'],
+            y=df_iv['IV Promedio'],
+            mode='lines+markers',
+            name='IV Promedio ATM'
+        ))
+        
+        fig.update_layout(
+            title='📈 Estructura Temporal de Volatilidad Implícita',
+            xaxis_title='Días hasta el Vencimiento',
+            yaxis_title='Volatilidad Implícita',
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+    except Exception as e:
+        st.error(f"Error generando estructura temporal de IV: {e}")
 
 def plot_profit_loss_profile(options, current_price, profit_loss_function, strategy_name):
     strikes = np.linspace(options.calls['strike'].min(), options.calls['strike'].max(), 100)
@@ -566,6 +626,21 @@ def main():
     fig_macd.update_layout(title=f'MACD para {stock}', xaxis_title='Fecha', yaxis_title='MACD')
     st.plotly_chart(fig_macd, use_container_width=True)
 
+    # Nuevas secciones añadidas aquí
+    st.subheader("🔮 Cono de Probabilidad")
+    st.markdown("""
+    El cono de probabilidad muestra el rango esperado de precios basado en la volatilidad histórica (2 desviaciones estándar).
+    Indica la zona donde el precio tiene un 95% de probabilidad de permanecer según el movimiento histórico.
+    """)
+    plot_probability_cone(hist_data, current_price)
+    
+    st.subheader("⏳ Estructura Temporal de Volatilidad")
+    st.markdown("""
+    La estructura temporal de volatilidad muestra cómo varía la volatilidad implícita entre diferentes fechas de vencimiento.
+    Una curva invertida (contango) indica mayor volatilidad en corto plazo, mientras que una curva normal señala mayor incertidumbre a largo plazo.
+    """)
+    plot_iv_term_structure(ticker, current_price)
+
     # Opciones
     expirations = ticker.options
     if not expirations:
@@ -598,9 +673,6 @@ def main():
                     mime="text/csv",
                 )
             
-            # Mostrar Griegas
-            display_greeks(option_chain, current_price)
-            
             # Análisis de Volatilidad Implícita
             st.subheader("Análisis de Volatilidad Implícita")
             st.markdown("""
@@ -616,22 +688,10 @@ def main():
                 fig_vol.add_trace(go.Scatter(x=option_chain.puts['strike'], y=option_chain.puts['impliedVolatility'], mode='lines', name='Puts'))
                 fig_vol.update_layout(title='📊 Sonrisa de Volatilidad Implícita', xaxis_title='Precio de Ejercicio', yaxis_title='Volatilidad Implícita')
                 st.plotly_chart(fig_vol, use_container_width=True)
-                
-                # Estructura Temporal de Volatilidad
-                plot_volatility_term_structure(ticker)
-                
-                # Cono de Probabilidades
-                if 'impliedVolatility' in option_chain.calls.columns:
-                    iv = option_chain.calls['impliedVolatility'].mean()
-                    plot_probability_cone(ticker, current_price, expiration, iv)
-                    
-                    # Distribución de Precio
-                    days_to_expiration = (datetime.strptime(expiration, '%Y-%m-%d') - datetime.now()).days
-                    plot_price_distribution(current_price, iv, days_to_expiration)
             else:
                 st.warning("No se puede mostrar la sonrisa de volatilidad implícita debido a datos faltantes.")
 
-            # Estrategias de Opciones
+    # Estrategias de Opciones
             display_options_strategy(ticker, current_price, expiration)
 
     # Descripción de Estrategias de Opciones
@@ -677,7 +737,7 @@ def main():
         
         st.plotly_chart(fig, use_container_width=True)
 
-    # Feedback
+# Feedback
     st.subheader("📝 ¡Queremos saber tu opinión!")
     st.markdown("¿Qué más te gustaría ver en este proyecto? ¿Te interesaría un proyecto de opciones más complejo? ¡Tu feedback es muy importante para nosotros!")
 
@@ -703,7 +763,9 @@ def main():
     
     # Footer usando markdown de Streamlit
     st.markdown("---")
-    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://optima-learning--ashy.vercel.app/) | [Página Web](https://www.optimafinancials.com/)")
+    st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://optima-learning--ashy.vercel.app/) | [Página Web](https://www.optimafinancials.com/)" )
 
-    if __name__ == '__main__':
-        main()
+
+
+if __name__ == "__main__":
+    main()

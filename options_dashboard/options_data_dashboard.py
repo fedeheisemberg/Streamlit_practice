@@ -6,28 +6,14 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import requests
 from bs4 import BeautifulSoup
-import seaborn as sns
 import matplotlib.pyplot as plt
 from subscription_manager import save_feedback
 import numpy as np
-import matplotlib.pyplot as plt
-
-# Configuración de la página con favicon
-# Configuración de la página de Streamlit
-st.set_page_config(page_title="Dashboard OptionsPro", layout="wide", page_icon="options_dashboard/favicon.ico")
 
 # Función para determinar el modo (oscuro o claro)
 def get_theme():
     return st.get_option("theme.base")
 
-# Cargar logo basado en el tema
-if get_theme() == "light":
-    st.image("options_dashboard/logo2.png")
-else:
-    st.image("options_dashboard/logo1.png")
-
-# Crear título
-st.title("Dashboard OptionsPro - Optima Consulting & Management LLC")
 
 def get_option_data(ticker, expiration):
     try:
@@ -320,6 +306,199 @@ def implement_iron_condor(options, current_price):
     
     plot_profit_loss_profile(options, current_price, lambda strike: quantity * (min(call_otm['strike'], max(put_otm['strike'], strike)) - current_price + condor_credit / 100), "Cóndor de Hierro")
 
+def plot_probability_cone(hist_data, current_price, days=30):
+    """Calcula y grafica el cono de probabilidad usando volatilidad histórica"""
+    try:
+        # Obtener tema actual de Streamlit
+        theme = get_theme()
+        
+        # Colores mejorados para dark y light mode
+        if theme == "light":
+            color_3sigma = 'rgba(255, 87, 34, 0.25)'  # Naranja fuerte
+            border_3sigma = 'rgba(255, 87, 34, 0.8)'
+            color_2sigma = 'rgba(33, 150, 243, 0.3)'  # Azul vibrante
+            border_2sigma = 'rgba(33, 150, 243, 0.9)'
+            current_price_color = '#1E1E1E'  # Gris oscuro
+            line_1sigma_up = '#D32F2F'  # Rojo oscuro
+            line_1sigma_down = '#388E3C'  # Verde oscuro
+            grid_color = 'rgba(160, 160, 160, 0.5)'
+            bg_color = 'rgba(255, 255, 255, 0.9)'  # Fondo blanco
+        else:
+            color_3sigma = 'rgba(255, 87, 34, 0.35)'
+            border_3sigma = 'rgba(255, 87, 34, 1)'
+            color_2sigma = 'rgba(33, 150, 243, 0.4)'
+            border_2sigma = 'rgba(33, 150, 243, 1)'
+            current_price_color = '#E0E0E0'  # Gris claro
+            line_1sigma_up = '#FF5252'  # Rojo claro
+            line_1sigma_down = '#66BB6A'  # Verde claro
+            grid_color = 'rgba(70, 70, 70, 0.5)'
+            bg_color = 'rgba(30, 30, 30, 0.9)'  # Fondo oscuro
+        
+        # Calcular volatilidad histórica
+        returns = np.log(hist_data['Close'] / hist_data['Close'].shift(1))
+        volatility = returns.std() * np.sqrt(252)  # Volatilidad anualizada
+        
+        # Crear rango de fechas futuras
+        future_dates = [datetime.today() + timedelta(days=i) for i in range(days)]
+        
+        # Calcular desviaciones estándar para cada día
+        time_periods = np.arange(1, days+1) / 252
+        std_devs_1 = volatility * np.sqrt(time_periods)
+        std_devs_2 = 2 * volatility * np.sqrt(time_periods)
+        std_devs_3 = 3 * volatility * np.sqrt(time_periods)
+        
+        # Calcular niveles de precios
+        upper_2sigma = current_price * (1 + std_devs_2)
+        lower_2sigma = current_price * (1 - std_devs_2)
+        upper_3sigma = current_price * (1 + std_devs_3)
+        lower_3sigma = current_price * (1 - std_devs_3)
+        
+        # Crear gráfico con colores mejorados
+        fig = go.Figure()
+        
+        # Área de 3σ (99.7% de probabilidad)
+        fig.add_trace(go.Scatter(
+            x=future_dates + future_dates[::-1],
+            y=np.concatenate([upper_3sigma, lower_3sigma[::-1]]),
+            fill='toself',
+            fillcolor=color_3sigma,
+            line=dict(color=border_3sigma),
+            name='Zona de 3σ (99.7%)'
+        ))
+        
+        # Área de 2σ (95.4% de probabilidad)
+        fig.add_trace(go.Scatter(
+            x=future_dates + future_dates[::-1],
+            y=np.concatenate([upper_2sigma, lower_2sigma[::-1]]),
+            fill='toself',
+            fillcolor=color_2sigma,
+            line=dict(color=border_2sigma),
+            name='Zona de 2σ (95.4%)'
+        ))
+        
+        # Línea central (precio actual)
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=[current_price]*days,
+            line=dict(color=current_price_color, width=2, dash='dot'),
+            name='Precio Actual'
+        ))
+        
+        # Líneas de tendencia media
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=current_price * (1 + std_devs_1),
+            line=dict(color=line_1sigma_up, width=1.5, dash='dash'),
+            name='+1σ (68.3%)'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=future_dates,
+            y=current_price * (1 - std_devs_1),
+            line=dict(color=line_1sigma_down, width=1.5, dash='dash'),
+            name='-1σ (68.3%)'
+        ))
+        
+        fig.update_layout(
+            title='📊 Cono de Probabilidad (Niveles Sigma)',
+            xaxis_title='Fecha',
+            yaxis_title='Precio Proyectado',
+            plot_bgcolor=bg_color,
+            paper_bgcolor='rgba(0, 0, 0, 0)',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            hovermode="x unified",
+            showlegend=True,
+            xaxis=dict(gridcolor=grid_color),
+            yaxis=dict(gridcolor=grid_color)
+        )
+        
+        # Anotaciones explicativas
+        fig.add_annotation(
+            x=future_dates[-10],
+            y=upper_3sigma[-10],
+            text="Máximo esperado (3σ)",
+            showarrow=True,
+            arrowhead=1,
+            ax=-50,
+            ay=-40
+        )
+        
+        fig.add_annotation(
+            x=future_dates[-10],
+            y=lower_3sigma[-10],
+            text="Mínimo esperado (3σ)",
+            showarrow=True,
+            arrowhead=1,
+            ax=-50,
+            ay=40
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+    except Exception as e:
+        st.error(f"Error calculando el cono de probabilidad: {e}")
+
+
+def plot_iv_term_structure(ticker, current_price):
+    """Grafica la estructura temporal de la volatilidad implícita"""
+    try:
+        expirations = ticker.options
+        iv_data = []
+        
+        for exp in expirations:
+            try:
+                # Obtener datos de opciones
+                chain = ticker.option_chain(exp)
+                days_to_exp = (datetime.strptime(exp, "%Y-%m-%d") - datetime.today()).days
+                
+                # Encontrar strikes ATM
+                call_atm = chain.calls.iloc[(chain.calls['strike'] - current_price).abs().argsort()[:1]]
+                put_atm = chain.puts.iloc[(chain.puts['strike'] - current_price).abs().argsort()[:1]]
+                
+                # Calcular IV promedio
+                avg_iv = (call_atm['impliedVolatility'].values[0] + put_atm['impliedVolatility'].values[0]) / 2
+                
+                iv_data.append({
+                    'Expiración': exp,
+                    'Días': days_to_exp,
+                    'IV Promedio': avg_iv
+                })
+            except:
+                continue
+        
+        if not iv_data:
+            st.warning("No se encontraron datos de IV para la estructura temporal")
+            return
+        
+        df_iv = pd.DataFrame(iv_data).sort_values('Días')
+        
+        # Crear gráfico
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=df_iv['Días'],
+            y=df_iv['IV Promedio'],
+            mode='lines+markers',
+            name='IV Promedio ATM'
+        ))
+        
+        fig.update_layout(
+            title='📈 Estructura Temporal de Volatilidad Implícita',
+            xaxis_title='Días hasta el Vencimiento',
+            yaxis_title='Volatilidad Implícita',
+            showlegend=True
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+    except Exception as e:
+        st.error(f"Error generando estructura temporal de IV: {e}")
 
 def plot_profit_loss_profile(options, current_price, profit_loss_function, strategy_name):
     strikes = np.linspace(options.calls['strike'].min(), options.calls['strike'].max(), 100)
@@ -446,6 +625,21 @@ def main():
     fig_macd.add_trace(go.Bar(x=hist_data.index, y=histogram, name='Histograma'))
     fig_macd.update_layout(title=f'MACD para {stock}', xaxis_title='Fecha', yaxis_title='MACD')
     st.plotly_chart(fig_macd, use_container_width=True)
+
+    # Nuevas secciones añadidas aquí
+    st.subheader("🔮 Cono de Probabilidad")
+    st.markdown("""
+    El cono de probabilidad muestra el rango esperado de precios basado en la volatilidad histórica (2 desviaciones estándar).
+    Indica la zona donde el precio tiene un 95% de probabilidad de permanecer según el movimiento histórico.
+    """)
+    plot_probability_cone(hist_data, current_price)
+    
+    st.subheader("⏳ Estructura Temporal de Volatilidad")
+    st.markdown("""
+    La estructura temporal de volatilidad muestra cómo varía la volatilidad implícita entre diferentes fechas de vencimiento.
+    Una curva invertida (contango) indica mayor volatilidad en corto plazo, mientras que una curva normal señala mayor incertidumbre a largo plazo.
+    """)
+    plot_iv_term_structure(ticker, current_price)
 
     # Opciones
     expirations = ticker.options
