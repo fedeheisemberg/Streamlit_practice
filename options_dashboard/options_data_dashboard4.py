@@ -12,22 +12,6 @@ from subscription_manager import save_feedback
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Configuración de la página con favicon
-# Configuración de la página de Streamlit
-st.set_page_config(page_title="Dashboard OptionsPro", layout="wide", page_icon="options_dashboard/favicon.ico")
-
-# Función para determinar el modo (oscuro o claro)
-def get_theme():
-    return st.get_option("theme.base")
-
-# Cargar logo basado en el tema
-if get_theme() == "light":
-    st.image("options_dashboard/logo2.png")
-else:
-    st.image("options_dashboard/logo1.png")
-
-# Crear título
-st.title("Dashboard OptionsPro - Optima Consulting & Management LLC")
 
 def get_option_data(ticker, expiration):
     try:
@@ -319,6 +303,8 @@ def implement_iron_condor(options, current_price):
     st.info("ℹ️ El Cóndor de Hierro es una estrategia de volatilidad neutral que se beneficia cuando el precio del activo subyacente permanece dentro de un rango específico al vencimiento.")
     
     plot_profit_loss_profile(options, current_price, lambda strike: quantity * (min(call_otm['strike'], max(put_otm['strike'], strike)) - current_price + condor_credit / 100), "Cóndor de Hierro")
+
+# After each call to plot_profit_loss_profile in each strategy function, add the following code:
 
 def plot_profit_loss_profile(options, current_price, profit_loss_function, strategy_name):
     strikes = np.linspace(options.calls['strike'].min(), options.calls['strike'].max(), 100)
