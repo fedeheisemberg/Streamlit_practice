@@ -10,9 +10,21 @@ import matplotlib.pyplot as plt
 from subscription_manager import save_feedback
 import numpy as np
 
+# Configuración de la página con favicon
+st.set_page_config(page_title="Dashboard OptionsPro", layout="wide", page_icon="options_dashboard/favicon.ico")
+
 # Función para determinar el modo (oscuro o claro)
 def get_theme():
     return st.get_option("theme.base")
+
+# Cargar logo basado en el tema
+if get_theme() == "light":
+    st.image("options_dashboard/logo2.png")
+else:
+    st.image("options_dashboard/logo1.png")
+
+# Crear título
+st.title("Dashboard OptionsPro - Optima Consulting & Management LLC")
 
 
 def get_option_data(ticker, expiration):
@@ -788,7 +800,6 @@ def main():
     # Footer usando markdown de Streamlit
     st.markdown("---")
     st.markdown("© 2024 Optima Consulting & Management LLC | [LinkedIn](https://www.linkedin.com/company/optima-consulting-managament-llc) | [Capacitaciones](https://optima-learning--ashy.vercel.app/) | [Página Web](https://www.optimafinancials.com/)" )
-
 
 
 if __name__ == "__main__":
