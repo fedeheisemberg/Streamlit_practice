@@ -171,7 +171,7 @@ else:
 
 # Función para crear gráfico de velas
 def create_candlestick_chart(ticker):
-    data = yf.download(ticker, period="1y")
+    data = yf.download(ticker, period="1y", progress=False, auto_adjust=False)
     fig = go.Figure(data=[go.Candlestick(x=data.index,
                 open=data['Open'],
                 high=data['High'],
