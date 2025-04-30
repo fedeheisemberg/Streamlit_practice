@@ -30,7 +30,7 @@ def get_stock_data(symbol, start_date, end_date):
     Obtiene datos históricos de precios para un símbolo específico
     """
     try:
-        stock = yf.download(symbol, start=start_date, end=end_date, progress=False, multi_level_index=False, auto_adjust=False)
+        stock = yf.download(symbol, start=start_date, end=end_date, progress=False, auto_adjust=False)
         return stock
     except Exception as e:
         st.error(f"❌ Error al obtener datos: {e}")
