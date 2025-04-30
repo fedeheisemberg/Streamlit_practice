@@ -40,16 +40,19 @@ def add_footer():
     st.markdown(footer_html, unsafe_allow_html=True)
 
 # Funciones para el análisis
-def get_stock_data(symbol, start_date, end_date):
-    """
-    Obtiene datos históricos de precios para un símbolo específico
-    """
-    try:
-        stock = yf.download(symbol, start=start_date, end=end_date, progress=False, auto_adjust=False)
-        return stock
-    except Exception as e:
-        st.error(f"❌ Error al obtener datos: {e}")
-        return None
+def get_stock_data(symbol, start_date, end_date, retries=3, wait=5):
+    for attempt in range(retries):
+        try:
+            stock = yf.download(symbol, start=start_date, end=end_date, progress=False, auto_adjust=False)
+            if stock.empty or 'Adj Close' not in stock.columns:
+                raise ValueError("No data or missing 'Adj Close'")
+            return stock
+        except Exception as e:
+            st.warning(f"⚠️ Intento {attempt+1} fallido para {symbol}: {e}")
+            time.sleep(wait)
+    st.error(f"❌ No se pudieron obtener datos para {symbol} tras {retries} intentos.")
+    return None
+
 
 def calculate_transaction_costs(price, shares, commission=0.001, slippage=0.0001):
     """
