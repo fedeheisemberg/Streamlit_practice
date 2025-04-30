@@ -16,13 +16,28 @@ st.set_page_config(
 )
 
 # Función para mostrar el footer
-def footer():
-    st.markdown("""
-    <div style='position: fixed; bottom: 0; width: 100%; text-align: center; 
-    background-color: #f5f5f5; padding: 10px; border-top: 1px solid #ddd;'>
-    <p>© 2025 Fede Martinez - Finanzas & Data | <a href="https://linkedin.com/in/fedemartiinez" target="_blank">LinkedIn</a></p>
+# Función para crear el footer
+def add_footer():
+    footer_html = """
+    <style>
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #0E1117;
+        color: #FAFAFA;
+        text-align: center;
+        padding: 10px;
+        font-size: 14px;
+        border-top: 1px solid #333;
+    }
+    </style>
+    <div class="footer">
+        💼 Made with ❤️ by Fede Martinez - Finanzas & Data
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(footer_html, unsafe_allow_html=True)
 
 # Funciones para el análisis
 def get_stock_data(symbol, start_date, end_date):
@@ -948,7 +963,7 @@ def main():
         """)
     
     # Footer
-    footer()
+    add_footer()
 
 if __name__ == "__main__":
     main()
