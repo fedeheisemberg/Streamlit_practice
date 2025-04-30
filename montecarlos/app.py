@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 import datetime
 
 def get_stock_data(symbol, start_date, end_date):
-    stock = yf.download(symbol, start=start_date, end=end_date)
+    stock = yf.download(symbol, start=start_date, end=end_date, progress=False, multi_level_index=False, auto_adjust=False)
     return stock
 
 def calculate_transaction_costs(price, shares, commission=0.001, slippage=0.0001):
