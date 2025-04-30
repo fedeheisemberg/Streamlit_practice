@@ -1,8 +1,8 @@
-streamlit==1.30.0
+streamlit
 yfinance
-pandas==2.1.4
-numpy==1.26.3
-plotly==5.18.0
+pandas
+numpy
+plotly
 datetime
-matplotlib==3.8.2
-scikit-learn==1.4.0
+matplotlib
+scikit-learn
