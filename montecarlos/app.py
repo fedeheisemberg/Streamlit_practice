@@ -134,7 +134,7 @@ def display_key_metrics(data, symbol, initial_investment):
     col1, col2, col3, col4 = st.columns(4)
     
     # Cálculo de métricas
-    current_price = data['Adj Close'].iloc[-1]
+    current_price = float(data['Adj Close'].iloc[-1])
     change_1d = data['Adj Close'].pct_change().iloc[-1] * 100
     change_30d = (data['Adj Close'].iloc[-1] / data['Adj Close'].iloc[-min(30, len(data))] - 1) * 100
     volume_avg = data['Volume'].mean()
