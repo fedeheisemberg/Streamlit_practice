@@ -16,7 +16,6 @@ st.set_page_config(
 )
 
 # Función para mostrar el footer
-# Función para crear el footer
 def add_footer():
     footer_html = """
     <style>
@@ -133,11 +132,19 @@ def display_key_metrics(data, symbol, initial_investment):
     """Muestra métricas clave del activo actual"""
     col1, col2, col3, col4 = st.columns(4)
     
-    # Cálculo de métricas
+    # Cálculo de métricas - Fix: extraer valores escalares de las Series
+    # Usar .iloc[-1] para obtener el último valor en lugar de toda la Serie
     current_price = float(data['Adj Close'].iloc[-1])
-    change_1d = data['Adj Close'].pct_change().iloc[-1] * 100
-    change_30d = (data['Adj Close'].iloc[-1] / data['Adj Close'].iloc[-min(30, len(data))] - 1) * 100
-    volume_avg = data['Volume'].mean()
+    change_1d = float(data['Adj Close'].pct_change().iloc[-1]) * 100
+    
+    # Para el cambio de 30 días, asegurarse de que hay suficientes datos
+    lookback_period = min(30, len(data)-1)
+    if lookback_period > 0:
+        change_30d = (float(data['Adj Close'].iloc[-1]) / float(data['Adj Close'].iloc[-lookback_period-1]) - 1) * 100
+    else:
+        change_30d = 0.0
+    
+    volume_avg = float(data['Volume'].mean())
     
     # Mostrar métricas con iconos y colores
     with col1:
