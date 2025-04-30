@@ -16,42 +16,25 @@ st.set_page_config(
 )
 
 # Función para mostrar el footer
-def add_footer():
-    footer_html = """
-    <style>
-    .footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: #0E1117;
-        color: #FAFAFA;
-        text-align: center;
-        padding: 10px;
-        font-size: 14px;
-        border-top: 1px solid #333;
-    }
-    </style>
-    <div class="footer">
-        💼 Made with ❤️ by Fede Martinez - Finanzas & Data
+def footer():
+    st.markdown("""
+    <div style='position: fixed; bottom: 0; width: 100%; text-align: center; 
+    background-color: #f5f5f5; padding: 10px; border-top: 1px solid #ddd;'>
+    <p>© 2025 Fede Martinez - Finanzas & Data | <a href="https://linkedin.com/in/fedemartiinez" target="_blank">LinkedIn</a></p>
     </div>
-    """
-    st.markdown(footer_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 # Funciones para el análisis
-def get_stock_data(symbol, start_date, end_date, retries=3, wait=5):
-    for attempt in range(retries):
-        try:
-            stock = yf.download(symbol, start=start_date, end=end_date, progress=False, auto_adjust=False)
-            if stock.empty or 'Adj Close' not in stock.columns:
-                raise ValueError("No data or missing 'Adj Close'")
-            return stock
-        except Exception as e:
-            st.warning(f"⚠️ Intento {attempt+1} fallido para {symbol}: {e}")
-            time.sleep(wait)
-    st.error(f"❌ No se pudieron obtener datos para {symbol} tras {retries} intentos.")
-    return None
-
+def get_stock_data(symbol, start_date, end_date):
+    """
+    Obtiene datos históricos de precios para un símbolo específico
+    """
+    try:
+        stock = yf.download(symbol, start=start_date, end=end_date, progress=False, multi_level_index=False, auto_adjust=False)
+        return stock
+    except Exception as e:
+        st.error(f"❌ Error al obtener datos: {e}")
+        return None
 
 def calculate_transaction_costs(price, shares, commission=0.001, slippage=0.0001):
     """
@@ -132,19 +115,11 @@ def display_key_metrics(data, symbol, initial_investment):
     """Muestra métricas clave del activo actual"""
     col1, col2, col3, col4 = st.columns(4)
     
-    # Cálculo de métricas - Fix: extraer valores escalares de las Series
-    # Usar .iloc[-1] para obtener el último valor en lugar de toda la Serie
-    current_price = float(data['Adj Close'].iloc[-1])
-    change_1d = float(data['Adj Close'].pct_change().iloc[-1]) * 100
-    
-    # Para el cambio de 30 días, asegurarse de que hay suficientes datos
-    lookback_period = min(30, len(data)-1)
-    if lookback_period > 0:
-        change_30d = (float(data['Adj Close'].iloc[-1]) / float(data['Adj Close'].iloc[-lookback_period-1]) - 1) * 100
-    else:
-        change_30d = 0.0
-    
-    volume_avg = float(data['Volume'].mean())
+    # Cálculo de métricas
+    current_price = data['Adj Close'].iloc[-1]
+    change_1d = data['Adj Close'].pct_change().iloc[-1] * 100
+    change_30d = (data['Adj Close'].iloc[-1] / data['Adj Close'].iloc[-min(30, len(data))] - 1) * 100
+    volume_avg = data['Volume'].mean()
     
     # Mostrar métricas con iconos y colores
     with col1:
@@ -973,7 +948,7 @@ def main():
         """)
     
     # Footer
-    add_footer()
+    footer()
 
 if __name__ == "__main__":
     main()
